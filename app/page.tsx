@@ -62,7 +62,7 @@ export default function Dashboard() {
       <div className="hub-top"><span>Workspace / Dashboard</span><span className="hub-top-status">Local workspace</span></div>
       <div className="hub-content">
         <div className="hub-heading"><div><p className="hub-eyebrow">YOUR WORKSPACE</p><h1>Dashboard</h1><p>Manage your websites and start something new.</p></div><button className="primary" onClick={() => setCreating(true)}><Plus size={17}/> New website</button></div>
-        <div className="hub-stats"><div><strong>{sites.length}</strong><span>Total websites</span></div><div><strong>{sites.length}</strong><span>Projects in workspace</span></div><div><strong>Local</strong><span>Environment</span></div></div>
+        <div className="hub-stats"><div><strong>{sites.length}</strong><span>Total websites</span></div><div><strong>Local</strong><span>Environment</span></div></div>
         <div className="hub-list-head"><div><h2>All projects</h2><p>Open a website to manage its designer, CMS, forms, SEO and settings.</p></div><div className="hub-search"><Search size={16}/><input aria-label="Search projects" placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)}/></div></div>
         {error && <div className="hub-error" role="alert">{error} <button onClick={()=>void loadSites()}>Retry</button></div>}
         {loading ? <p className="hub-muted">Loading projects…</p> : visible.length ? <div className="hub-grid">{visible.map(site=><article className="hub-project" key={site.id}>
