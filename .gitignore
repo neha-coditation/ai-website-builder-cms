@@ -9,3 +9,18 @@ dist/
 .DS_Store
 .vercel/
 coverage/
+
+tsconfig.tsbuildinfo
+public/uploads/
+.neon
+
+# Cloudflare local development
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.open-next/
+.wrangler/
+
+# Local agent files
+.agents/
+skills-lock.json
