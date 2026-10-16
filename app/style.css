@@ -143,3 +143,12 @@
 .builder-layer-nest,.builder-layer-after{display:flex;align-items:center;justify-content:center;flex:0 0 19px;min-width:19px;height:23px;border:1px dashed transparent;border-radius:5px;background:transparent;color:#8ba7d9;opacity:.45}
 .builder-layer-nest:hover,.builder-layer-after:hover{border-color:#7197ff;background:rgba(48,100,254,.2);opacity:1}
 .builder-layer:hover .builder-layer-nest,.builder-layer:hover .builder-layer-after{opacity:1}
+
+
+/* Phase 29: autosave status and reusable component cards */
+.builder-autosave-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#9fb3d6;white-space:nowrap;padding:4px 8px}
+.builder-section-presets>input{width:100%;padding:9px 10px;margin:6px 0 10px;border:1px solid #3b4d69;border-radius:7px;background:#111b2c;color:#eaf0ff}
+.builder-component-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #29354b}
+.builder-component-row>button:first-child{display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:1;min-width:0;padding:9px;border:1px solid #33445e;border-radius:7px;text-align:left}
+.builder-component-row small{color:#a1b0cc;font-size:11px}
+.builder-component-row>button:last-child{padding:7px;border-radius:6px}

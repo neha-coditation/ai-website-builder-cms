@@ -58,6 +58,7 @@ const layerIcons:Record<BlockType,typeof Type>={
 function layerLabel(block:Block){return block.type==='container'?(block.text||'Container'):block.type==='heading'?(block.text||'Heading'):block.type==='paragraph'?(block.text.slice(0,32)||'Text'):block.type==='image'?(block.alt||'Image'):block.type==='button'?(block.text||'Button'):palette.find(p=>p.type===block.type)?.label||block.type;}
 const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '', 'cms-list': 'Collection list', container:'Container', form:'Contact us',search:'Search',dropdown:'Menu',tabs:'Overview|Details|FAQ',input:'Your name',textarea:'Your message',checkbox:'I agree',select:'Option 1|Option 2|Option 3',divider:'',spacer:'',video:'',embed:'' };
 
+type SavedComponent = { id:string; name:string; blocks:Block[]; createdAt:string };
 type SectionPreset = { id:string; name:string; description:string; blocks: Omit<Block,'id'>[] };
 const sectionPresets: SectionPreset[] = [
   {id:'hero',name:'Hero',description:'Headline, introduction and call to action',blocks:[
@@ -100,6 +101,12 @@ function Workspace() {
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus,setAutoSaveStatus]=useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [components,setComponents]=useState<SavedComponent[]>([]);
+  const [componentsLoaded,setComponentsLoaded]=useState(false);
+  const [componentName,setComponentName]=useState('');
+  const lastAutoSaved=useRef<{key:string;json:string}>({key:'',json:''});
+  const autoSaveRequest=useRef<Promise<void>>(Promise.resolve());
   const [pages, setPages] = useState<ProjectPage[]>([]);
   const [classRules,setClassRules]=useState<ClassRules>({});
   const [classNameDraft,setClassNameDraft]=useState('');
@@ -146,6 +153,44 @@ function Workspace() {
     history.future=[];
     setHistoryRevision(n=>n+1);
   },[site,loaded,historyKey,historyReady]);
+  useEffect(()=>{
+    if(!siteId)return;
+    setComponentsLoaded(false);
+    try{
+      const raw=localStorage.getItem('studio-components-'+siteId);
+      const parsed=raw?JSON.parse(raw):[];
+      setComponents(Array.isArray(parsed)?parsed:[]);
+    }catch{setComponents([]);}
+    setComponentsLoaded(true);
+  },[siteId]);
+  useEffect(()=>{
+    if(!siteId||!componentsLoaded)return;
+    localStorage.setItem('studio-components-'+siteId,JSON.stringify(components));
+  },[siteId,components,componentsLoaded]);
+  useEffect(()=>{
+    if(!loaded||!historyReady||!siteId)return;
+    const key=siteId+':'+pageId;
+    const json=JSON.stringify(site);
+    if(lastAutoSaved.current.key!==key){
+      lastAutoSaved.current={key,json};
+      setAutoSaveStatus('idle');
+      return;
+    }
+    if(lastAutoSaved.current.json===json)return;
+    setAutoSaveStatus('idle');
+    const timer=window.setTimeout(()=>{
+      setAutoSaveStatus('saving');
+      const url=pageId?'/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId):'/api/projects/'+encodeURIComponent(siteId)+'/home';
+      autoSaveRequest.current=autoSaveRequest.current.catch(()=>{}).then(async()=>{
+        const response=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(pageId?{content:JSON.parse(json)}:JSON.parse(json))});
+        if(!response.ok)throw new Error('Autosave failed ('+response.status+')');
+        lastAutoSaved.current={key,json};
+        localStorage.setItem('studio-cms-designer-'+siteId,json);
+        setAutoSaveStatus('saved');
+      }).catch(error=>{setAutoSaveStatus('error');setError(error instanceof Error?error.message:'Autosave failed');});
+    },1100);
+    return ()=>window.clearTimeout(timer);
+  },[site,siteId,pageId,loaded,historyReady]);
   function undo() {
     const history=historyRef.current;
     if(!history.past.length || history.pageKey!==historyKey)return;
@@ -401,6 +446,28 @@ function Workspace() {
     setPreview(false);
   }
 
+  function saveAsComponent(){
+    const ids=new Set(multiSelected.length?multiSelected:(selected?[selected]:[]));
+    const name=componentName.trim()||window.prompt('Component name')?.trim();
+    if(!name||!ids.size)return;
+    let changed=true;
+    while(changed){changed=false;for(const b of site.blocks){if(b.parentId&&ids.has(b.parentId)&&!ids.has(b.id)){ids.add(b.id);changed=true;}}}
+    const blocks=site.blocks.filter(b=>ids.has(b.id)).map(b=>structuredClone(b));
+    const component:SavedComponent={id:makeId(),name,blocks,createdAt:new Date().toISOString()};
+    setComponents(previous=>[...previous,component]);
+    setComponentName('');
+  }
+  function insertComponent(component:SavedComponent){
+    const ids=new Map(component.blocks.map(b=>[b.id,makeId()]));
+    const reserved=[...site.blocks];
+    const copies=component.blocks.map(b=>{
+      const next:Block={...structuredClone(b),id:ids.get(b.id)!,parentId:b.parentId?ids.get(b.parentId):undefined,classNames:autoClass(b.type,reserved)};
+      reserved.push(next);return next;
+    });
+    setSite(previous=>({...previous,blocks:[...previous.blocks,...copies]}));
+    setSelected(copies[0]?.id||null);setMultiSelected(copies.map(b=>b.id));setSaved(false);setLeftTab('layers');
+  }
+  function deleteComponent(id:string){setComponents(previous=>previous.filter(c=>c.id!==id));}
   function insertSection(preset: SectionPreset) {
     const reserved=[...site.blocks];
     const blocks: Block[] = preset.blocks.map(block=>{const next:Block={...block,id:makeId(),classNames:autoClass(block.type,reserved),style:{...block.style}};reserved.push(next);return next;});
@@ -727,7 +794,7 @@ function Workspace() {
     <div className="builder-main">
       <header className="builder-toolbar">
         <div className="builder-project"><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">{pageTitle} · Designer</span></div>
-        <nav className="builder-top-nav" aria-label="Designer navigation"><button onClick={()=>{setLeftTab('pages');setLeftCollapsed(false);}}><Files size={16}/> Pages</button><button onClick={()=>{setLeftTab('elements');setLeftCollapsed(false);}}><Plus size={16}/> Elements</button><button onClick={()=>{setLeftTab('layers');setLeftCollapsed(false);}}><Layers size={16}/> Layers</button><button onClick={()=>{setLeftTab('assets');setLeftCollapsed(false);}}><FolderOpen size={16}/> Assets</button><Link href={'/cms'+(siteId?'?siteId='+encodeURIComponent(siteId):'')}><Database size={16}/> CMS</Link><Link href={'/settings?siteId='+encodeURIComponent(siteId)}><Settings2 size={16}/> Site settings</Link></nav><div className="builder-toolbar-actions">
+        <nav className="builder-top-nav" aria-label="Designer navigation"><button onClick={()=>{setLeftTab('pages');setLeftCollapsed(false);}}><Files size={16}/> Pages</button><button onClick={()=>{setLeftTab('elements');setLeftCollapsed(false);}}><Plus size={16}/> Elements</button><button onClick={()=>{setLeftTab('layers');setLeftCollapsed(false);}}><Layers size={16}/> Layers</button><button onClick={()=>{setLeftTab('assets');setLeftCollapsed(false);}}><FolderOpen size={16}/> Assets</button><Link href={'/cms'+(siteId?'?siteId='+encodeURIComponent(siteId):'')}><Database size={16}/> CMS</Link><Link href={'/settings?siteId='+encodeURIComponent(siteId)}><Settings2 size={16}/> Site settings</Link></nav><span className="builder-autosave-status" role="status">{autoSaveStatus==='saving'?'Saving…':autoSaveStatus==='saved'?'All changes saved':autoSaveStatus==='error'?'Autosave failed':'Autosave on'}</span><div className="builder-toolbar-actions">
           <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
           <div className="builder-history-actions" role="group" aria-label="Edit history"><button type="button" className="builder-action" title="Undo (⌘/Ctrl+Z)" aria-label="Undo" disabled={!canUndo||preview} onClick={undo}><Undo2 size={17}/></button><button type="button" className="builder-action" title="Redo (⌘/Ctrl+Shift+Z)" aria-label="Redo" disabled={!canRedo||preview} onClick={redo}><Redo2 size={17}/></button></div>
           <button className={preview?'builder-action active':'builder-action'} onClick={()=>setPreview(v=>!v)}><Eye size={17}/><span>{preview?'Exit preview':'Preview'}</span></button>
@@ -740,7 +807,7 @@ function Workspace() {
         {!preview&&<button className="builder-panel-toggle builder-panel-toggle-right" onClick={()=>setRightCollapsed(v=>!v)} title={rightCollapsed?'Show inspector':'Hide inspector'} aria-label={rightCollapsed?'Show inspector':'Hide inspector'}><ChevronLeft size={16} style={{transform:rightCollapsed?undefined:'rotate(180deg)'}}/></button>}
         {!preview && <aside className="builder-left">
           {leftTab==='pages'&&<div className={"builder-pages"+(pagesExpanded?" expanded":"")}><div className="builder-panel-heading"><strong><Files size={15}/> Pages</strong><button type="button" className="builder-pages-toggle" onClick={()=>setPagesExpanded(v=>!v)} aria-expanded={pagesExpanded} aria-label={pagesExpanded?"Collapse pages":"Expand pages"}><ChevronsUpDown size={14}/><span>{pages.length}</span></button></div><div className="builder-pages-details"><div className="builder-page-list">{pages.map(page=><button key={page.id} className={pageId===page.id?'active':''} onClick={()=>openPage(page)}>{page.title}<small>/{page.slug}</small></button>)}</div><button className="builder-page-settings-open" onClick={()=>setPageSettingsOpen(true)}><Settings2 size={15}/> Page settings</button><div className="builder-new-page"><input aria-label="New page name" placeholder="New page name" value={newPageName} onChange={event=>setNewPageName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void createPage();}}/><button disabled={!newPageName.trim()||creatingPage} onClick={()=>void createPage()} title="Create page"><FilePlus2 size={16}/></button></div>{pages.find(page=>page.id===pageId)?.slug!=='home'&&pageId&&<button className="builder-remove-page" onClick={()=>void deletePage()}><Trash2 size={14}/> Delete page</button>}</div></div>}
-          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div><div className="builder-section-presets"><div className="builder-panel-heading"><strong>Sections</strong><span>Ready-made</span></div><p className="builder-hint">Insert a section, then customize its elements in Layers.</p>{sectionPresets.map(preset=><button key={preset.id} className="builder-section-preset" onClick={()=>insertSection(preset)}><span><strong>{preset.name}</strong><small>{preset.description}</small></span><Plus size={17}/></button>)}</div></div> : leftTab==='assets'?<div className="builder-side-content builder-assets-panel"><div className="builder-panel-heading"><strong>Assets</strong><span>{assets.length}</span></div><p className="builder-hint">Upload images from your computer, then select Use to insert them.</p><label className="builder-upload-zone">Upload images<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files);e.target.value='';}}/></label><p className="builder-hint">PNG, JPEG or WebP, maximum 10 MB each. Local development storage.</p>{assetBusy&&<p>Uploading images…</p>}<div className="builder-asset-grid">{assets.map(asset=><div className="builder-asset-card" key={asset.id}><img src={asset.url} alt={asset.alt||''} loading="lazy"/><strong>{asset.name}</strong><div><button onClick={()=>useAsset(asset)}>Use</button><button onClick={()=>void deleteAsset(asset.id)} aria-label={'Remove '+asset.name}><Trash2 size={14}/></button></div></div>)}</div></div> : leftTab==='layers'?<div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div><div className="builder-group-actions"><span>{multiSelected.length} selected</span><button disabled={multiSelected.length<2} onClick={groupSelection}>Group in Container</button><button disabled={!current||current.type!=='container'} onClick={ungroupSelection}>Ungroup</button><button disabled={!selectedIds().length} onClick={duplicateSelection} title="Duplicate selected (Cmd/Ctrl+D)">Duplicate</button><button disabled={!selectedIds().length} onClick={remove} title="Delete selected (Delete/Backspace)">Delete</button></div><p className="builder-hint">Cmd/Ctrl-click or Shift-click layers to select multiple elements.</p><div className="builder-layer-search"><Search size={15}/><input aria-label="Search layers" placeholder="Find layers…" value={layerSearch} onChange={e=>setLayerSearch(e.target.value)}/></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:visibleLayerRows().map(({block:b,depth,hasChildren})=>{const Icon=layerIcons[b.type]||Layers;const index=site.blocks.findIndex(item=>item.id===b.id);return <div className={'builder-layer'+(multiSelected.includes(b.id)||selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag} onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'before')} style={{paddingLeft:8+depth*16}}><span className="builder-layer-drop-before" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'before')} title="Drop before"/><button type="button" className="builder-layer-expand" aria-label={hasChildren?(collapsedLayers.includes(b.id)?'Expand children':'Collapse children'):'No children'} disabled={!hasChildren} onClick={()=>toggleLayerCollapsed(b.id)}>{hasChildren?<ChevronDown size={13} style={{transform:collapsedLayers.includes(b.id)?'rotate(-90deg)':undefined}}/>:<span className="builder-layer-spacer"/>}</button><button title={b.classNames||b.type} onClick={event=>toggleSelection(b.id,event.metaKey||event.ctrlKey||event.shiftKey)}><GripVertical size={12} className="builder-layer-grip"/><Icon size={15}/><span className="builder-layer-label">{layerLabel(b)}</span></button><button type="button" className="builder-layer-after" title="Drop after this layer" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'after')}><ArrowDown size={12}/></button>{b.type==='container'&&<button type="button" className="builder-layer-nest" title="Drop inside container" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'inside')}><Plus size={12}/></button>}<div className="builder-layer-actions"><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>})}</div> : null}
+          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div><div className="builder-section-presets"><div className="builder-panel-heading"><strong>Components</strong><span>{components.length}</span></div><p className="builder-hint">Select elements or a container in Layers, then save as a reusable component.</p><input aria-label="Component name" placeholder="Component name" value={componentName} onChange={e=>setComponentName(e.target.value)}/><button className="builder-section-preset" disabled={!selected&&!multiSelected.length} onClick={saveAsComponent}><span><strong>Create component</strong><small>Save selected elements</small></span><Plus size={17}/></button>{components.map(component=><div className="builder-component-row" key={component.id}><button onClick={()=>insertComponent(component)}><strong>{component.name}</strong><small>{component.blocks.length} elements</small></button><button aria-label={'Delete component '+component.name} onClick={()=>deleteComponent(component.id)}><Trash2 size={14}/></button></div>)}</div><div className="builder-section-presets"><div className="builder-panel-heading"><strong>Sections</strong><span>Ready-made</span></div><p className="builder-hint">Insert a section, then customize its elements in Layers.</p>{sectionPresets.map(preset=><button key={preset.id} className="builder-section-preset" onClick={()=>insertSection(preset)}><span><strong>{preset.name}</strong><small>{preset.description}</small></span><Plus size={17}/></button>)}</div></div> : leftTab==='assets'?<div className="builder-side-content builder-assets-panel"><div className="builder-panel-heading"><strong>Assets</strong><span>{assets.length}</span></div><p className="builder-hint">Upload images from your computer, then select Use to insert them.</p><label className="builder-upload-zone">Upload images<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files);e.target.value='';}}/></label><p className="builder-hint">PNG, JPEG or WebP, maximum 10 MB each. Local development storage.</p>{assetBusy&&<p>Uploading images…</p>}<div className="builder-asset-grid">{assets.map(asset=><div className="builder-asset-card" key={asset.id}><img src={asset.url} alt={asset.alt||''} loading="lazy"/><strong>{asset.name}</strong><div><button onClick={()=>useAsset(asset)}>Use</button><button onClick={()=>void deleteAsset(asset.id)} aria-label={'Remove '+asset.name}><Trash2 size={14}/></button></div></div>)}</div></div> : leftTab==='layers'?<div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div><div className="builder-group-actions"><span>{multiSelected.length} selected</span><button disabled={multiSelected.length<2} onClick={groupSelection}>Group in Container</button><button disabled={!current||current.type!=='container'} onClick={ungroupSelection}>Ungroup</button><button disabled={!selectedIds().length} onClick={duplicateSelection} title="Duplicate selected (Cmd/Ctrl+D)">Duplicate</button><button disabled={!selectedIds().length} onClick={remove} title="Delete selected (Delete/Backspace)">Delete</button></div><p className="builder-hint">Cmd/Ctrl-click or Shift-click layers to select multiple elements.</p><div className="builder-layer-search"><Search size={15}/><input aria-label="Search layers" placeholder="Find layers…" value={layerSearch} onChange={e=>setLayerSearch(e.target.value)}/></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:visibleLayerRows().map(({block:b,depth,hasChildren})=>{const Icon=layerIcons[b.type]||Layers;const index=site.blocks.findIndex(item=>item.id===b.id);return <div className={'builder-layer'+(multiSelected.includes(b.id)||selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag} onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'before')} style={{paddingLeft:8+depth*16}}><span className="builder-layer-drop-before" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'before')} title="Drop before"/><button type="button" className="builder-layer-expand" aria-label={hasChildren?(collapsedLayers.includes(b.id)?'Expand children':'Collapse children'):'No children'} disabled={!hasChildren} onClick={()=>toggleLayerCollapsed(b.id)}>{hasChildren?<ChevronDown size={13} style={{transform:collapsedLayers.includes(b.id)?'rotate(-90deg)':undefined}}/>:<span className="builder-layer-spacer"/>}</button><button title={b.classNames||b.type} onClick={event=>toggleSelection(b.id,event.metaKey||event.ctrlKey||event.shiftKey)}><GripVertical size={12} className="builder-layer-grip"/><Icon size={15}/><span className="builder-layer-label">{layerLabel(b)}</span></button><button type="button" className="builder-layer-after" title="Drop after this layer" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'after')}><ArrowDown size={12}/></button>{b.type==='container'&&<button type="button" className="builder-layer-nest" title="Drop inside container" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'inside')}><Plus size={12}/></button>}<div className="builder-layer-actions"><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>})}</div> : null}
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
           <div className="builder-site-header" style={{backgroundColor:globalDesign.headerBackground||undefined,color:globalDesign.headerTextColor||undefined}}><strong>{globalDesign.logoText||site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>
