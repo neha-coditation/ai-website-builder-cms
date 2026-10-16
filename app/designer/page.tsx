@@ -497,7 +497,7 @@ function Workspace() {
       const pageResponse=await fetch(url,{cache:'no-store'});
       if(pageResponse.ok){
         const pageData=await pageResponse.json();
-        const content=pageId?(pageData.page?.content||pageData.content):pageData;
+        const content=pageData.page?.content||pageData.content;
         if(content&&Array.isArray(content.blocks))setSite(previous=>({...previous,blocks:content.blocks}));
       }
       window.alert('Updated '+result.updatedInstances+' instances across '+result.updatedPages+' saved pages.');
