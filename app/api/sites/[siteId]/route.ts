@@ -4,6 +4,10 @@ import { prisma } from '../../../../lib/prisma';
 
 const globalDesignSchema = z.object({
   logoText: z.string().max(120).default(''),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#3064fe'),
+  bodyTextColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#131827'),
+  pageBackground: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffffff'),
+  fontFamily: z.enum(['Inter','Arial','Georgia','system-ui']).default('Inter'),
   headerBackground: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffffff'),
   headerTextColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#131827'),
   footerText: z.string().max(300).default(''),
