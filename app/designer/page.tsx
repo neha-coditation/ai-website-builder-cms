@@ -7,7 +7,8 @@ import { FilePlus2, Files, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Da
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image';
 type Block = { id: string; type: BlockType; text: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
-type Site = { name: string; blocks: Block[] };
+type Seo = { title: string; description: string; noindex: boolean; ogImage: string };
+type Site = { name: string; blocks: Block[]; seo?: Seo };
 type DbSite = { id: string; name: string };
 type ProjectPage = { id: string; slug: string; title: string; content: unknown };
 const starter = (name: string): Site => ({ name, blocks: [
@@ -31,7 +32,7 @@ function Workspace() {
   const [selected, setSelected] = useState<string | null>('hero-title');
   const [device, setDevice] = useState<'desktop'|'mobile'>('desktop');
   const [leftTab, setLeftTab] = useState<'elements'|'layers'>('elements');
-  const [rightTab, setRightTab] = useState<'content'|'style'>('content');
+  const [rightTab, setRightTab] = useState<'content'|'style'|'seo'>('content');
   const [preview, setPreview] = useState(false);
   const [saved, setSaved] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -72,7 +73,7 @@ function Workspace() {
           const content = active?.content;
           if (content && typeof content === 'object' && !Array.isArray(content) && 'blocks' in content) {
             const blocks = (content as { blocks: unknown }).blocks;
-            if (Array.isArray(blocks)) value = { name: projectName, blocks: blocks as Block[] };
+            if (Array.isArray(blocks)) value = { name: projectName, blocks: blocks as Block[], seo: 'seo' in content ? (content as { seo: Seo }).seo : undefined };
           }
         } catch (cause) {
           if (!cancelled) setError(cause instanceof Error ? cause.message : 'Unable to load project.');
@@ -102,7 +103,7 @@ function Workspace() {
       ? (content as { blocks: Block[] }).blocks : [];
     setPageId(page.id);
     setPageTitle(page.title);
-    setSite(previous => ({ name: previous.name, blocks }));
+    setSite(previous => ({ name: previous.name, blocks, seo: content && typeof content === 'object' && !Array.isArray(content) && 'seo' in content ? (content as { seo: Seo }).seo : undefined }));
     setSelected(blocks[0]?.id || null);
     setError('');
   }
@@ -135,6 +136,7 @@ function Workspace() {
     if (next) openPage(next);
   }
   const current = site.blocks.find(b => b.id === selected);
+  function updateSeo(patch: Partial<Seo>) { setSite(previous => ({ ...previous, seo: { title:'',description:'',noindex:false,ogImage:'',...previous.seo,...patch } })); }
   function add(type: BlockType) {
     const block: Block = { id: makeId(), type, text: defaults[type], style: {} };
     setSite(s => ({ ...s, blocks: [...s.blocks, block] }));
@@ -223,6 +225,7 @@ function Workspace() {
         });
         if (!response.ok) throw new Error('Could not save page to PostgreSQL (' + response.status + ').');
       }
+      setPages(previous => previous.map(page => page.id === pageId ? { ...page, content: site } : page));
       localStorage.setItem(storageKey, JSON.stringify(site));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1600);
@@ -266,7 +269,7 @@ function Workspace() {
           {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
-          <div className="builder-site-header"><strong>{site.name}</strong><span>Home　 About　 Contact</span></div>
+          <div className="builder-site-header"><strong>{site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>
           <div className={'builder-site-body'+(dragging?' is-dragging':'')} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
             {site.blocks.map((b,index)=><div key={b.id}>
               {!preview && dropZone(index)}
@@ -281,8 +284,8 @@ function Workspace() {
           </div>
           <div className="builder-site-footer">© {new Date().getFullYear()} {site.name}</div>
         </div></div>
-        {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button></div>
-          {current ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>{current.type.charAt(0).toUpperCase()+current.type.slice(1)}</strong><button onClick={remove} className="builder-icon-danger" title="Delete element" aria-label="Delete element"><Trash2 size={17}/></button></div>
+        {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button><button className={rightTab==='seo'?'active':''} onClick={()=>setRightTab('seo')}>SEO</button></div>
+          {rightTab==='seo' ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page SEO</strong></div><label htmlFor="seo-title">Search title</label><input id="seo-title" maxLength={70} value={site.seo?.title||''} onChange={e=>updateSeo({title:e.target.value})}/><label htmlFor="seo-description">Meta description</label><textarea id="seo-description" rows={5} maxLength={320} value={site.seo?.description||''} onChange={e=>updateSeo({description:e.target.value})}/><label htmlFor="seo-image">Social image URL</label><input id="seo-image" type="url" value={site.seo?.ogImage||''} onChange={e=>updateSeo({ogImage:e.target.value})}/><label className="builder-seo-toggle"><input type="checkbox" checked={site.seo?.noindex||false} onChange={e=>updateSeo({noindex:e.target.checked})}/> Noindex</label><p className="builder-hint">SEO values are saved with the page. Public metadata rendering is not implemented yet.</p></div> : current ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>{current.type.charAt(0).toUpperCase()+current.type.slice(1)}</strong><button onClick={remove} className="builder-icon-danger" title="Delete element" aria-label="Delete element"><Trash2 size={17}/></button></div>
             {rightTab==='content' ? <><label htmlFor="builder-content">{current.type==='image'?'Image URL':'Text content'}</label><textarea id="builder-content" rows={current.type==='paragraph'?8:4} value={current.text} onChange={e=>updateBlock({text:e.target.value})}/><p className="builder-hint">Changes appear immediately on the canvas.</p></> :
             <><label htmlFor="builder-color">Text color</label><div className="builder-color-control"><input id="builder-color" type="color" value={current.style?.color||'#131827'} onChange={e=>updateStyle({color:e.target.value})}/><span>{current.style?.color||'Default'}</span></div>
               <label htmlFor="builder-bg">Background color</label><div className="builder-color-control"><input id="builder-bg" type="color" value={current.style?.background||'#ffffff'} onChange={e=>updateStyle({background:e.target.value})}/><span>{current.style?.background||'Default'}</span></div>

@@ -5,7 +5,13 @@ import { prisma } from '../../../../../../lib/prisma';
 
 const style = z.object({ color: z.string().optional(), background: z.string().optional(), fontSize: z.number().finite().min(0).max(500).optional(), padding: z.number().finite().min(0).max(1000).optional(), radius: z.number().finite().min(0).max(1000).optional(), align: z.enum(['left','center','right']).optional() }).optional();
 const block = z.object({ id: z.string().min(1).max(120), type: z.enum(['heading','paragraph','button','image']), text: z.string().max(100000), style });
-const schema = z.object({ content: z.object({ name: z.string().trim().min(1).max(120), blocks: z.array(block).max(1000) }) });
+const seoSchema = z.object({
+  title: z.string().max(70).default(''),
+  description: z.string().max(320).default(''),
+  noindex: z.boolean().default(false),
+  ogImage: z.union([z.literal(''), z.string().url().max(2000)]).default(''),
+});
+const schema = z.object({ content: z.object({ name: z.string().trim().min(1).max(120), blocks: z.array(block).max(1000), seo: seoSchema.optional() }) });
 type Context = { params: Promise<{ siteId: string; pageId: string }> };
 export async function PUT(request: Request, { params }: Context) {
   const { siteId, pageId } = await params;
