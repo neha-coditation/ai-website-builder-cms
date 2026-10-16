@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "db:status": "prisma migrate status",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
