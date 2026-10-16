@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../../lib/prisma';
+import { prisma } from '../../../../../../../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 type B={id:string;type:string;text:string;parentId?:string;componentId?:string;componentInstanceId?:string;componentSourceId?:string;classNames?:string;[key:string]:unknown};
