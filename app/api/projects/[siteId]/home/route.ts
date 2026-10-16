@@ -8,7 +8,7 @@ const block = z.object({
   type: z.enum(['heading', 'paragraph', 'button', 'image', 'cms-list','container','form','search','dropdown','tabs','input','textarea','checkbox','select','divider','spacer','video','embed','form','search','dropdown','tabs','input','textarea','checkbox','select','divider','spacer','video','embed','form','search','dropdown','tabs','input','textarea','checkbox','select','divider','spacer','video','embed']),
   text: z.string().max(100000),
   collectionId: z.string().max(120).optional(),
-  displayField: z.string().max(120).optional(), htmlId: z.string().regex(/^[A-Za-z][A-Za-z0-9_-]*$/).max(120).optional(), classNames: z.string().regex(/^[A-Za-z0-9_\- ]*$/).max(500).optional(), alt: z.string().max(500).optional(), href: z.union([z.literal(''),z.string().max(2000)]).optional(), parentId: z.string().max(120).optional(), layout: z.enum(['column','row','grid']).optional(), gap: z.number().finite().min(0).max(200).optional(), columns: z.number().int().min(1).max(6).optional(),
+  displayField: z.string().max(120).optional(), htmlId: z.string().regex(/^[A-Za-z][A-Za-z0-9_-]*$/).max(120).optional(), classNames: z.string().regex(/^[A-Za-z0-9_\- ]*$/).max(500).optional(), alt: z.string().max(500).optional(), href: z.union([z.literal(''),z.string().max(2000)]).optional(), parentId: z.string().max(120).optional(), componentId: z.string().max(120).optional(), componentInstanceId: z.string().max(120).optional(), componentSourceId: z.string().max(120).optional(), layout: z.enum(['column','row','grid']).optional(), gap: z.number().finite().min(0).max(200).optional(), columns: z.number().int().min(1).max(6).optional(),
   style: z.object({
     color: z.string().optional(),
     background: z.string().optional(),
