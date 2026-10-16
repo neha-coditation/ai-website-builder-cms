@@ -3,7 +3,7 @@ import { Suspense, useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FilePlus2, Files, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
+import { FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list';
 type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
@@ -282,7 +282,7 @@ function Workspace() {
       <Link href="/" className="builder-brand" aria-label="Back to dashboard">✦</Link>
       <Link href="/" title="All projects" aria-label="All projects"><ChevronLeft size={20}/></Link>
       <button className={!preview ? 'is-active' : ''} title="Designer" aria-label="Designer" onClick={()=>setPreview(false)}><LayoutTemplate size={20}/></button>
-      <Link href={'/cms' + (siteId ? '?siteId='+encodeURIComponent(siteId) : '')} title="CMS collections" aria-label="CMS collections"><Database size={20}/></Link>
+      <Link href={'/cms' + (siteId ? '?siteId='+encodeURIComponent(siteId) : '')} title="CMS collections" aria-label="CMS collections"><Database size={20}/></Link><Link href={'/settings?siteId='+encodeURIComponent(siteId)} title="Website settings" aria-label="Website settings"><Settings2 size={20}/></Link>
     </aside>
     <div className="builder-main">
       <header className="builder-toolbar">
