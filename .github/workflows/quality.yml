@@ -18,18 +18,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-      - name: Install dependencies (allow fallback)
-        run: |
-          set -e
-          # Prefer a clean, deterministic install with `npm ci`.
-          # If the lockfile is out of sync (causing `npm ci` to fail), fall back to `npm install`
-          # as a temporary measure so CI continues to run while the lockfile is fixed.
-          if npm ci; then
-            echo "npm ci succeeded"
-          else
-            echo "npm ci failed — falling back to npm install"
-            npm install
-          fi
+      - run: npm ci
       - run: npx prisma validate
       - run: npx prisma generate
       - run: npm run typecheck
