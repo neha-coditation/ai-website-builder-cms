@@ -211,3 +211,39 @@
 .forms-inbox th,.forms-inbox td{padding:13px 15px;border-bottom:1px solid #26344c;vertical-align:top;max-width:330px;overflow-wrap:anywhere}
 .forms-inbox th{background:#16233a;color:#aec2e4;font-weight:600}
 .forms-inbox tbody tr:hover{background:#15233a}
+
+
+/* Phase 38: unified project workspace */
+.studio-workspace{display:flex;min-height:100vh;background:#0b101a;color:#e8efff;font-family:Inter,system-ui,sans-serif}
+.studio-workspace-nav{width:242px;flex:0 0 242px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;padding:24px 12px;background:#101725;border-right:1px solid #253248}
+.studio-workspace-nav a{display:flex;align-items:center;gap:11px;text-decoration:none;color:#aebdd5;padding:11px 13px;border-radius:8px;font-size:13px}
+.studio-workspace-nav a:hover,.studio-workspace-nav a.active{background:#213252;color:#fff}
+.studio-workspace-nav .studio-workspace-brand{font-size:17px;font-weight:750;color:#f2f6ff;margin-bottom:24px}
+.studio-workspace-nav .studio-workspace-back{font-size:12px;margin-bottom:14px}
+.studio-workspace-nav-label{font-size:10px;letter-spacing:.14em;color:#7891b5;padding:8px 13px}
+.studio-workspace-nav-foot{margin-top:auto;display:flex;gap:8px;align-items:center;color:#8295b1;font-size:11px;padding:15px 10px}
+.studio-workspace-main{flex:1;min-width:0;padding:0 clamp(20px,4vw,64px) 65px}
+.studio-workspace-top{height:68px;border-bottom:1px solid #273449;display:flex;align-items:center;justify-content:space-between;gap:15px;color:#91a6c5;font-size:12px}
+.studio-workspace-top a{display:flex;align-items:center;gap:7px;text-decoration:none;color:#eaf0ff}
+.studio-workspace-hero{padding:43px 0 28px}
+.studio-workspace-hero>p:first-child{font-size:11px;letter-spacing:.15em;color:#6e9cf5;font-weight:700}
+.studio-workspace-hero h1{font-size:clamp(28px,4vw,42px);letter-spacing:-.035em;margin:10px 0}
+.studio-workspace-hero span{font-size:13px;color:#83a0cb}
+.studio-workspace-hero>p:last-child{color:#a8b8d2;font-size:14px;max-width:670px;line-height:1.65}
+.studio-workspace-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.studio-workspace-summary>div{display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid #2c3b52;border-radius:10px;background:#141e2e;min-width:0}
+.studio-workspace-summary span{color:#8ba2c4;font-size:12px}.studio-workspace-summary strong{font-size:14px;overflow-wrap:anywhere}
+.studio-workspace-heading{margin:34px 0 17px}.studio-workspace-heading h2{font-size:20px;margin:0 0 6px}.studio-workspace-heading p{color:#9eb1cc;font-size:13px;margin:0}
+.studio-workspace-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.studio-workspace-module{position:relative;display:flex;flex-direction:column;min-height:172px;gap:8px;padding:19px;border:1px solid #2b3b53;border-radius:11px;background:#141e2e;text-decoration:none;color:#edf3ff;transition:border-color .15s,background .15s}
+.studio-workspace-module:hover{border-color:#5681df;background:#1b2b47}
+.studio-workspace-module-top{display:flex;align-items:center;justify-content:space-between;color:#8ab0ff}
+.studio-workspace-module-top span{font-size:10px;border-radius:5px;padding:4px 7px;background:#28354b;color:#b9c8dc}
+.studio-workspace-module-top span.ready{background:#1c403a;color:#a8e5c9}
+.studio-workspace-module h3{font-size:15px;margin:9px 0 0}
+.studio-workspace-module p{font-size:12px;line-height:1.6;color:#9bafca;margin:0;padding-right:16px}
+.studio-workspace-module-arrow{position:absolute;right:18px;bottom:18px;color:#7f9bc6}
+.studio-workspace-notice{display:flex;gap:14px;margin-top:25px;padding:20px;border:1px solid #35496c;border-radius:10px;background:#13243d}
+.studio-workspace-notice p{color:#a4b7d3;font-size:13px;line-height:1.6}.studio-workspace-notice a{color:#9abaff;font-size:12px}
+@media(max-width:1050px){.studio-workspace-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:750px){.studio-workspace{display:block}.studio-workspace-nav{position:static;width:auto;height:auto;display:flex;flex-direction:row;flex-wrap:wrap;padding:12px}.studio-workspace-nav a{padding:8px}.studio-workspace-nav-label,.studio-workspace-nav-foot{display:none}.studio-workspace-nav .studio-workspace-brand{margin:0}.studio-workspace-summary{grid-template-columns:1fr}.studio-workspace-grid{grid-template-columns:1fr}}
