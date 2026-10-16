@@ -22,3 +22,7 @@
 
 /* Phase 7 SEO inspector and page-aware preview navigation */
 .builder-site-links{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.builder-site-links button{background:transparent;border:0;color:#57647b;padding:8px 10px;font-size:12px}.builder-site-links button.active{color:#3064fe;border-bottom:2px solid #3064fe}.builder-seo-toggle{display:flex!important;align-items:center;gap:10px;line-height:1.4}.builder-seo-toggle input{width:auto!important;accent-color:#3064fe}.builder-right .builder-tabs button{font-size:12px;min-width:0}@media(max-width:600px){.builder-site-links{gap:0}.builder-site-links button{padding:5px;font-size:10px}}
+
+
+/* Collection-connected CMS element */
+.builder-cms-block{border:1px solid #dce4f0;border-radius:12px;padding:22px;background:#f8faff;color:#19233a}.builder-cms-heading{display:flex;align-items:center;gap:9px;margin-bottom:18px}.builder-cms-heading small{margin-left:auto;color:#6b7992}.builder-cms-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}.builder-cms-cards article{background:white;border:1px solid #e0e6ef;border-radius:9px;padding:20px;min-height:100px}.builder-cms-cards h3{font-size:17px;line-height:1.35;overflow-wrap:anywhere}.builder-cms-cards small{color:#8490a3}.builder-cms-block>p{font-size:13px!important;color:#75839a!important}.builder-right .builder-side-content>a{display:inline-block;color:#9bbcff;margin-top:16px;font-size:13px}

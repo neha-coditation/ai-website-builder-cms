@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { FilePlus2, Files, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
 
-type BlockType = 'heading' | 'paragraph' | 'button' | 'image';
-type Block = { id: string; type: BlockType; text: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
+type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list';
+type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
 type Seo = { title: string; description: string; noindex: boolean; ogImage: string };
 type Site = { name: string; blocks: Block[]; seo?: Seo };
 type DbSite = { id: string; name: string };
 type ProjectPage = { id: string; slug: string; title: string; content: unknown };
+type CmsCollection = { id: string; name: string; fields: {name:string;type:string}[] };
+type CmsEntry = { id:string; slug:string; status:string; data: Record<string,unknown> };
 const starter = (name: string): Site => ({ name, blocks: [
   { id: 'hero-title', type: 'heading', text: 'Build something remarkable.', style: { fontSize: 54 } },
   { id: 'hero-copy', type: 'paragraph', text: 'Create, customize and launch your next website.', style: { fontSize: 19 } },
@@ -22,8 +24,9 @@ const palette: { type: BlockType; label: string; icon: typeof Type; description:
   { type: 'paragraph', label: 'Text', icon: AlignLeft, description: 'Body copy' },
   { type: 'button', label: 'Button', icon: MousePointer2, description: 'Call to action' },
   { type: 'image', label: 'Image', icon: ImageIcon, description: 'Visual content' },
+  { type: 'cms-list', label: 'CMS List', icon: Database, description: 'Collection-driven cards' },
 ];
-const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '' };
+const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '', 'cms-list': 'Collection list' };
 
 function Workspace() {
   const search = useSearchParams();
@@ -40,6 +43,8 @@ function Workspace() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pages, setPages] = useState<ProjectPage[]>([]);
+  const [collections, setCollections] = useState<CmsCollection[]>([]);
+  const [entriesByCollection, setEntriesByCollection] = useState<Record<string,CmsEntry[]>>({});
   const [pageId, setPageId] = useState('');
   const [pageTitle, setPageTitle] = useState('Home');
   const [creatingPage, setCreatingPage] = useState(false);
@@ -97,6 +102,26 @@ function Workspace() {
     return () => { cancelled = true; };
   }, [siteId, storageKey]);
 
+  useEffect(() => {
+    if (!siteId) return;
+    let cancelled = false;
+    fetch('/api/collections?siteId='+encodeURIComponent(siteId),{cache:'no-store'})
+      .then(response=>{if(!response.ok)throw new Error('Could not load CMS collections');return response.json();})
+      .then((data:CmsCollection[])=>{if(!cancelled)setCollections(data);})
+      .catch(()=>{if(!cancelled)setCollections([]);});
+    return ()=>{cancelled=true;};
+  },[siteId]);
+  useEffect(() => {
+    const ids = [...new Set(site.blocks.filter(block=>block.type==='cms-list'&&block.collectionId).map(block=>block.collectionId!))];
+    let cancelled = false;
+    for (const id of ids) {
+      fetch('/api/entries?collectionId='+encodeURIComponent(id),{cache:'no-store'})
+        .then(response=>{if(!response.ok)throw new Error('Could not load CMS entries');return response.json();})
+        .then((data:CmsEntry[])=>{if(!cancelled)setEntriesByCollection(previous=>({...previous,[id]:data.filter(entry=>entry.status==='published')}));})
+        .catch(()=>{if(!cancelled)setEntriesByCollection(previous=>({...previous,[id]:[]}));});
+    }
+    return ()=>{cancelled=true;};
+  },[site.blocks,siteId]);
   function openPage(page: ProjectPage) {
     const content = page.content;
     const blocks = content && typeof content === 'object' && !Array.isArray(content) && 'blocks' in content && Array.isArray((content as { blocks: unknown }).blocks)
@@ -244,6 +269,12 @@ function Workspace() {
     if (b.type === 'heading') return <h1 style={style}>{b.text}</h1>;
     if (b.type === 'paragraph') return <p style={style}>{b.text}</p>;
     if (b.type === 'button') return <button type="button" className="cta" style={style}>{b.text}</button>;
+    if (b.type === 'cms-list') {
+      const entries = b.collectionId ? entriesByCollection[b.collectionId] || [] : [];
+      const collection = collections.find(item=>item.id===b.collectionId);
+      const field = b.displayField || collection?.fields?.[0]?.name || 'title';
+      return <div className="builder-cms-block" style={style}><div className="builder-cms-heading"><Database size={16}/><strong>{collection?.name||'CMS Collection'}</strong><small>{entries.length} published</small></div>{!b.collectionId?<p>Select a collection in the Content panel.</p>:entries.length?<div className="builder-cms-cards">{entries.slice(0,12).map(entry=><article key={entry.id}><h3>{String(entry.data?.[field]??entry.slug)}</h3><small>/{entry.slug}</small></article>)}</div>:<p>No published entries yet.</p>}</div>;
+    }
     return b.text ? <img style={style} src={b.text} alt="Website visual" /> : <div className="builder-image-placeholder" style={style}><ImageIcon size={28}/> Add an image URL in Properties</div>;
   }
   return <div className="builder">
@@ -286,7 +317,7 @@ function Workspace() {
         </div></div>
         {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button><button className={rightTab==='seo'?'active':''} onClick={()=>setRightTab('seo')}>SEO</button></div>
           {rightTab==='seo' ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page SEO</strong></div><label htmlFor="seo-title">Search title</label><input id="seo-title" maxLength={70} value={site.seo?.title||''} onChange={e=>updateSeo({title:e.target.value})}/><label htmlFor="seo-description">Meta description</label><textarea id="seo-description" rows={5} maxLength={320} value={site.seo?.description||''} onChange={e=>updateSeo({description:e.target.value})}/><label htmlFor="seo-image">Social image URL</label><input id="seo-image" type="url" value={site.seo?.ogImage||''} onChange={e=>updateSeo({ogImage:e.target.value})}/><label className="builder-seo-toggle"><input type="checkbox" checked={site.seo?.noindex||false} onChange={e=>updateSeo({noindex:e.target.checked})}/> Noindex</label><p className="builder-hint">SEO values are saved with the page. Public metadata rendering is not implemented yet.</p></div> : current ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>{current.type.charAt(0).toUpperCase()+current.type.slice(1)}</strong><button onClick={remove} className="builder-icon-danger" title="Delete element" aria-label="Delete element"><Trash2 size={17}/></button></div>
-            {rightTab==='content' ? <><label htmlFor="builder-content">{current.type==='image'?'Image URL':'Text content'}</label><textarea id="builder-content" rows={current.type==='paragraph'?8:4} value={current.text} onChange={e=>updateBlock({text:e.target.value})}/><p className="builder-hint">Changes appear immediately on the canvas.</p></> :
+            {rightTab==='content' ? current.type==='cms-list' ? <><label htmlFor="builder-collection">CMS collection</label><select id="builder-collection" value={current.collectionId||''} onChange={e=>updateBlock({collectionId:e.target.value,displayField:''})}><option value="">Choose collection</option>{collections.map(collection=><option key={collection.id} value={collection.id}>{collection.name}</option>)}</select><label htmlFor="builder-display-field">Card heading field</label><select id="builder-display-field" value={current.displayField||''} onChange={e=>updateBlock({displayField:e.target.value})}><option value="">First field</option>{collections.find(collection=>collection.id===current.collectionId)?.fields?.map(field=><option key={field.name} value={field.name}>{field.name}</option>)}</select><p className="builder-hint">Only published entries are displayed. Manage collection content in CMS.</p><Link href={'/cms?siteId='+encodeURIComponent(siteId)}>Manage CMS →</Link></> : <><label htmlFor="builder-content">{current.type==='image'?'Image URL':'Text content'}</label><textarea id="builder-content" rows={current.type==='paragraph'?8:4} value={current.text} onChange={e=>updateBlock({text:e.target.value})}/><p className="builder-hint">Changes appear immediately on the canvas.</p></> :
             <><label htmlFor="builder-color">Text color</label><div className="builder-color-control"><input id="builder-color" type="color" value={current.style?.color||'#131827'} onChange={e=>updateStyle({color:e.target.value})}/><span>{current.style?.color||'Default'}</span></div>
               <label htmlFor="builder-bg">Background color</label><div className="builder-color-control"><input id="builder-bg" type="color" value={current.style?.background||'#ffffff'} onChange={e=>updateStyle({background:e.target.value})}/><span>{current.style?.background||'Default'}</span></div>
               <label htmlFor="builder-font-size">Font size (px)</label><input id="builder-font-size" type="number" min="8" max="120" placeholder="Default" value={current.style?.fontSize??''} onChange={e=>updateStyle({fontSize:e.target.value?Number(e.target.value):undefined})}/>
