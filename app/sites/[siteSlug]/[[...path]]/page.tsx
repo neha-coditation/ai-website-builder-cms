@@ -59,7 +59,8 @@ function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];desi
   if(block.type==='select')return <select {...attrs} style={style}>{(block.text||'Option 1|Option 2').split('|').map((value,i)=><option key={i}>{value.trim()}</option>)}</select>;
   if(block.type==='divider')return <hr {...attrs} style={style}/>;
   if(block.type==='spacer')return <div {...attrs} style={{height:40,...style}} aria-hidden="true"/>;
-  if(block.type==='video'||block.type==='embed')return <div {...attrs} style={style}>{block.type==='video'?'Video source not configured':'Embed content not configured'}</div>;
+  if(block.type==='video')return /^(https:\/\/|\/uploads\/)/.test(block.text)?<video {...attrs} src={block.text} controls preload="metadata" style={{...style,maxWidth:'100%'}}/>:<div {...attrs}>Video source not configured</div>;
+  if(block.type==='embed')return <pre {...attrs} style={{...style,whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{block.text}</pre>;
   if(block.type==='container'&&depth<4){
     const children=blocks.filter(b=>b.parentId===block.id);
     return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} depth={depth+1}/>)}</div>;
