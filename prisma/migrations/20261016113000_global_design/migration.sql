@@ -1,0 +1,1 @@
+ALTER TABLE "Site" ADD COLUMN "globalDesign" JSONB NOT NULL DEFAULT '{}';
