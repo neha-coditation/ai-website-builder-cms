@@ -4,7 +4,7 @@ type Context={params:Promise<{siteId:string}>};
 const obj=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
 export async function GET(_request:Request,{params}:Context){
  const {siteId}=await params;
- const site=await prisma.site.findUnique({where:{id:siteId},select:{id:true,slug:true,defaultTitle:true,siteConfig:true,pages:{select:{id:true,slug:true,title:true,seoTitle:true,seoDescription:true,content:true}}}});
+ const site=await prisma.site.findUnique({where:{id:siteId},select:{id:true,slug:true,defaultTitle:true,siteConfig:true,pages:{select:{id:true,slug:true,title:true,content:true}}}});
  if(!site)return NextResponse.json({error:'Website not found'},{status:404});
  const seo=obj(obj(site.siteConfig).seo);
  const redirects=Array.isArray(seo.redirects)?seo.redirects.map(obj):[];
@@ -12,8 +12,9 @@ export async function GET(_request:Request,{params}:Context){
  const pages=site.pages.map(page=>{
   const content=obj(page.content);
   const blocks=Array.isArray(content.blocks)?content.blocks.map(obj):[];
-  const title=(page.seoTitle||page.title||site.defaultTitle||'').trim();
-  const description=(page.seoDescription||String(seo.defaultDescription||'')).trim();
+  const pageSeo=obj(content.seo);
+  const title=String(pageSeo.title||page.title||site.defaultTitle||'').trim();
+  const description=String(pageSeo.description||seo.defaultDescription||'').trim();
   const pagePath=page.slug==='home'?'/':'/'+page.slug;
   if(!title)issues.push({severity:'error',page:pagePath,code:'missing-title',message:'SEO title is missing'});
   else if(title.length>60)issues.push({severity:'warning',page:pagePath,code:'long-title',message:'SEO title exceeds 60 characters'});
