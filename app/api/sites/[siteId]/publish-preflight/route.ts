@@ -12,6 +12,7 @@ export async function GET(_request:Request,{params}:Context){
  if(site.pages.length===0)issues.push({severity:'blocker',code:'no-pages',message:'Create at least one page before publishing.'});
  if(!site.pages.some(p=>p.slug==='home'))issues.push({severity:'blocker',code:'missing-home',message:'A home page is required.'});
  const slugs=new Set(site.pages.map(p=>p.slug));
+ const redirectsSeen=new Map<string,string>();
  const config=record(site.siteConfig),seo=record(config.seo);
  if(!seo.canonicalBaseUrl)issues.push({severity:'warning',code:'missing-canonical',message:'Canonical base URL is not configured.'});
  for(const page of site.pages){
@@ -25,8 +26,16 @@ export async function GET(_request:Request,{params}:Context){
  for(const item of redirects){const rule=record(item),from=String(rule.from||''),to=String(rule.to||'');
   if(sources.has(from))issues.push({severity:'blocker',code:'duplicate-redirect',message:'Duplicate redirect: '+from});
   sources.add(from);
+  if(from.startsWith('/')&&to.startsWith('/'))redirectsSeen.set(from,to);
   if(from===to)issues.push({severity:'blocker',code:'self-redirect',message:'Redirect points to itself: '+from});
   if(to!=='/'&&to.startsWith('/')&&!slugs.has(to.slice(1))&&!redirects.some(r=>record(r).from===to))issues.push({severity:'warning',code:'redirect-target',message:'Redirect destination has no matching page: '+to});
+ }
+ for(const start of redirectsSeen.keys()){
+  const visited=new Set<string>();let current=start;
+  while(redirectsSeen.has(current)){
+   if(visited.has(current)){issues.push({severity:'blocker',code:'redirect-loop',message:'Redirect loop detected from '+start});break;}
+   visited.add(current);current=redirectsSeen.get(current)!;
+  }
  }
  return NextResponse.json({siteId:site.id,siteName:site.name,summary:{pages:site.pages.length,assets:site.assets.length,blockers:issues.filter(i=>i.severity==='blocker').length,warnings:issues.filter(i=>i.severity==='warning').length},readyForPreview:!issues.some(i=>i.severity==='blocker'),readyForProduction:false,issues,note:'Preflight only. Production publishing, domains, versioning and rollback are not implemented.'},{headers:{'Cache-Control':'private, no-store'}});
 }
