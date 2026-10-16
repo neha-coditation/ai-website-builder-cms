@@ -1,1 +1,24 @@
-{"name":"studio-cms-starter","version":"0.1.0","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start"},"dependencies":{"@prisma/client":"^6.19.3","lucide-react":"^0.468.0","next":"^15.3.0","react":"^19.0.0","react-dom":"^19.0.0","zod":"^3.25.76"},"devDependencies":{"@types/node":"^22.0.0","@types/react":"^19.0.0","typescript":"^5.7.0"}}
+{
+  "name": "studio-cms-starter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "lucide-react": "^0.468.0",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0",
+    "prisma": "^6.19.3"
+  }
+}
