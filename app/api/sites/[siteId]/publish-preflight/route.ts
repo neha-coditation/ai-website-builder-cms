@@ -20,6 +20,14 @@ export async function GET(_request:Request,{params}:Context){
   if(!Array.isArray(content.blocks)||content.blocks.length===0)issues.push({severity:'warning',code:'empty-page',page:page.slug,message:'Page has no content blocks.'});
   if(!String(pageSeo.title||page.title||site.defaultTitle||'').trim())issues.push({severity:'warning',code:'missing-title',page:page.slug,message:'SEO title is missing.'});
   if(!String(pageSeo.description||seo.defaultDescription||'').trim())issues.push({severity:'warning',code:'missing-description',page:page.slug,message:'Meta description is missing.'});
+  for(const block of Array.isArray(content.blocks)?content.blocks:[]){
+   const b=record(block),href=typeof b.href==='string'?b.href.trim():'';
+   if(!href||href.startsWith('#')||href.startsWith('mailto:')||href.startsWith('tel:'))continue;
+   if(href.startsWith('/')){
+    const target=href.split(/[?#]/,1)[0].replace(/\\/$/,'')||'/';
+    if(!href.startsWith('//')&&target!=='/'&&!slugs.has(target.slice(1)))issues.push({severity:'warning',code:'unresolved-internal-link',page:page.slug,message:'Review internal link target: '+target.slice(0,160)});
+   }else if(!/^https?:\/\//i.test(href))issues.push({severity:'warning',code:'relative-link',page:page.slug,message:'Review relative link: '+href.slice(0,160)});
+  }
  }
  for(const asset of site.assets)if(!asset.url.trim())issues.push({severity:'warning',code:'empty-asset-url',message:'An asset is missing its URL.'});
  const redirects=Array.isArray(seo.redirects)?seo.redirects:[],sources=new Set<string>();
