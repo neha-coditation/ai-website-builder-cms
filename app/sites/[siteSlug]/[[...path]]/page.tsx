@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import SiteTabs from '../../../components/SiteTabs';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '../../../../lib/prisma';
 import type { CSSProperties } from 'react';
 
 type Params={params:Promise<{siteSlug:string;path?:string[]}>};
-type Block={id:string;type:string;text?:string;parentId?:string;collectionId?:string;displayField?:string;htmlId?:string;classNames?:string;alt?:string;href?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
+type Block={id:string;type:string;text?:string;tabContents?:string[];parentId?:string;collectionId?:string;displayField?:string;htmlId?:string;classNames?:string;alt?:string;href?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
 type Content={blocks?:Block[];seo?:{title?:string;description?:string;noindex?:boolean;ogImage?:string}};
 type ClassRule={color?:string;background?:string;fontSize?:number;padding?:number;radius?:number};
 type Design={classes?:Record<string,ClassRule>;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string;primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string};
@@ -52,7 +53,7 @@ function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];desi
   if(block.type==='form')return <form {...attrs} style={style} action="#" onSubmit={undefined}><strong>{block.text||'Contact'}</strong><label>Name<input name="name" required/></label><label>Email<input name="email" type="email" required/></label><label>Message<textarea name="message"/></label><button type="submit">Submit</button><p>Form delivery is not configured.</p></form>;
   if(block.type==='search')return <form {...attrs} style={style} role="search" action="#" method="get"><input type="search" name="q" placeholder={block.text||'Search'}/><button type="submit">Search</button></form>;
   if(block.type==='dropdown')return <details {...attrs} style={style}><summary>{block.text||'Menu'}</summary><div>Dropdown content</div></details>;
-  if(block.type==='tabs'){const tabs=(block.text||'Overview|Details').split('|').map(t=>t.trim()).filter(Boolean);return <div {...attrs} style={style}><nav aria-label="Tabs">{tabs.map((tab,i)=><a key={i} href={'#tab-'+block.id+'-'+i}>{tab}</a>)}</nav>{tabs.map((tab,i)=><section key={i} id={'tab-'+block.id+'-'+i}><h3>{tab}</h3></section>)}</div>;}
+  if(block.type==='tabs'){const labels=(block.text||'Overview|Details').split('|').map(t=>t.trim()).filter(Boolean);return <SiteTabs id={'site-tabs-'+block.id} labels={labels} contents={block.tabContents} className={attrs.className} style={style}/>;}
   if(block.type==='input')return <input {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
   if(block.type==='textarea')return <textarea {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
   if(block.type==='checkbox')return <label {...attrs} style={style}><input type="checkbox"/> {block.text}</label>;
