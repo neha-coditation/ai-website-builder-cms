@@ -7,7 +7,8 @@ import type { CSSProperties } from 'react';
 type Params={params:Promise<{siteSlug:string;path?:string[]}>};
 type Block={id:string;type:string;text?:string;parentId?:string;collectionId?:string;displayField?:string;htmlId?:string;classNames?:string;alt?:string;href?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
 type Content={blocks?:Block[];seo?:{title?:string;description?:string;noindex?:boolean;ogImage?:string}};
-type Design={logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string;primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string};
+type ClassRule={color?:string;background?:string;fontSize?:number;padding?:number;radius?:number};
+type Design={classes?:Record<string,ClassRule>;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string;primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string};
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 function getContent(v:unknown):Content {return obj(v) as Content;}
 function getDesign(v:unknown):Design {return obj(v) as Design;}
@@ -30,7 +31,16 @@ export async function generateMetadata({params}:Params):Promise<Metadata>{
 }
 function blockStyle(b:Block,design:Design):CSSProperties{
   const s=b.style||{};
-  return {color:s.color||design.bodyTextColor,backgroundColor:s.background||(b.type==='button'?design.primaryColor:undefined),fontSize:s.fontSize? s.fontSize+'px':undefined,padding:s.padding===undefined?undefined:s.padding+'px',borderRadius:s.radius===undefined?undefined:s.radius+'px',textAlign:s.align,maxWidth:s.maxWidth?s.maxWidth+'px':undefined,marginTop:s.marginTop===undefined?undefined:s.marginTop+'px',marginBottom:s.marginBottom===undefined?undefined:s.marginBottom+'px',width:s.width==='full'?'100%':s.width==='half'?'50%':undefined};
+  const fromClass:CSSProperties={};
+  for(const name of (b.classNames||'').split(/\s+/).filter(Boolean)){
+    const rule=design.classes?.[name];if(!rule)continue;
+    if(rule.color)fromClass.color=rule.color;
+    if(rule.background)fromClass.backgroundColor=rule.background;
+    if(rule.fontSize!==undefined)fromClass.fontSize=rule.fontSize+'px';
+    if(rule.padding!==undefined)fromClass.padding=rule.padding+'px';
+    if(rule.radius!==undefined)fromClass.borderRadius=rule.radius+'px';
+  }
+  return {...fromClass,...Object.fromEntries(Object.entries({color:s.color||design.bodyTextColor,backgroundColor:s.background||(b.type==='button'?design.primaryColor:undefined),fontSize:s.fontSize? s.fontSize+'px':undefined,padding:s.padding===undefined?undefined:s.padding+'px',borderRadius:s.radius===undefined?undefined:s.radius+'px',textAlign:s.align,maxWidth:s.maxWidth?s.maxWidth+'px':undefined,marginTop:s.marginTop===undefined?undefined:s.marginTop+'px',marginBottom:s.marginBottom===undefined?undefined:s.marginBottom+'px',width:s.width==='full'?'100%':s.width==='half'?'50%':undefined}).filter(([,value])=>value!==undefined))};
 }
 function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];design:Design;depth?:number}){
   const style=blockStyle(block,design);
