@@ -5,7 +5,7 @@ import { prisma } from '../../../../lib/prisma';
 import type { CSSProperties } from 'react';
 
 type Params={params:Promise<{siteSlug:string;path?:string[]}>};
-type Block={id:string;type:string;text?:string;parentId?:string;collectionId?:string;displayField?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
+type Block={id:string;type:string;text?:string;parentId?:string;collectionId?:string;displayField?:string;htmlId?:string;classNames?:string;alt?:string;href?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
 type Content={blocks?:Block[];seo?:{title?:string;description?:string;noindex?:boolean;ogImage?:string}};
 type Design={logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string;primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string};
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
@@ -34,13 +34,14 @@ function blockStyle(b:Block,design:Design):CSSProperties{
 }
 function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];design:Design;depth?:number}){
   const style=blockStyle(block,design);
-  if(block.type==='heading')return <h2 style={style}>{block.text}</h2>;
-  if(block.type==='paragraph')return <p style={style}>{block.text}</p>;
-  if(block.type==='button')return <span className="published-button" style={style}>{block.text}</span>;
-  if(block.type==='image')return block.text&&/^https:\/\//.test(block.text)?<img src={block.text} alt="" style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
+  const attrs={id:block.htmlId||undefined,className:block.classNames||undefined};
+  if(block.type==='heading')return <h2 {...attrs} style={style}>{block.text}</h2>;
+  if(block.type==='paragraph')return <p {...attrs} style={style}>{block.text}</p>;
+  if(block.type==='button'){const href=block.href||'';const safe=href.startsWith('/')&&!href.startsWith('//')||/^https:\/\//.test(href);return safe?<a {...attrs} href={href} rel={href.startsWith('https://')?'noopener noreferrer':undefined} className={['published-button',block.classNames].filter(Boolean).join(' ')} style={style}>{block.text}</a>:<span {...attrs} className={['published-button',block.classNames].filter(Boolean).join(' ')} style={style}>{block.text}</span>;}
+  if(block.type==='image')return block.text&&/^https:\/\//.test(block.text)?<img {...attrs} src={block.text} alt={block.alt||''} style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
   if(block.type==='container'&&depth<4){
     const children=blocks.filter(b=>b.parentId===block.id);
-    return <div className="published-container" style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} depth={depth+1}/>)}</div>;
+    return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} depth={depth+1}/>)}</div>;
   }
   return null;
 }
