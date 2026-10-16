@@ -113,3 +113,16 @@
 .builder-page-settings-open{width:calc(100% - 18px);margin:10px 9px;justify-content:flex-start}
 .builder-page-settings-modal{max-width:640px}
 @media(max-width:1450px){.builder-toolbar{flex-wrap:wrap;height:auto;min-height:60px;padding-top:8px;padding-bottom:8px}.builder-top-nav{order:3;width:100%;justify-content:center}.builder-top-nav button,.builder-top-nav a{padding:6px 8px}}
+
+
+/* Fix: restore independently scrolling designer panes after top-nav migration */
+.builder{display:flex!important;flex-direction:column!important;height:100dvh!important;min-height:0!important;overflow:hidden!important}
+.builder-main{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;width:100%;height:100%;min-height:0!important;overflow:hidden!important}
+.builder-toolbar{flex:0 0 auto;min-height:0}
+.builder-workspace{flex:1 1 auto!important;min-height:0!important;height:auto!important;overflow:hidden!important}
+.builder-stage{min-height:0!important;overflow-x:auto!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin}
+.builder-left,.builder-right{min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin}
+.builder-canvas{height:auto;min-height:100%}
+.builder-site-body{height:auto;min-height:520px}
+.builder-asset-modal{overscroll-behavior:contain}
+@media(max-width:800px){.builder-workspace{overflow:auto!important}.builder-stage{min-height:0!important}}
