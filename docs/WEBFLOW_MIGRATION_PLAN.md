@@ -35,3 +35,21 @@
 
 ## Explicit non-goals for 43A
 No automatic Webflow URL scraping, remote code execution, database writes, asset downloads, or publishing.
+
+## Parity audit (code review, 2026-10-16)
+- Designer has a block palette, layers, basic nested containers and desktop/mobile device modes; this is not Webflow's full visual CSS engine.
+- Site, Page, CmsCollection, CmsEntry, SiteAsset and SiteComponent Prisma models exist.
+- SEO audit endpoint inspects page JSON and site redirect configuration; it is not a complete published-site SEO verifier.
+- Migration intake supports pasted HTML only; no Webflow API extraction or automatic editable import.
+- Authentication middleware uses a shared studio admin session, not per-site roles.
+- The project overview explicitly labels Publishing, Assets and SEO as partial.
+- Local uploads under public/uploads are not persistent object storage.
+- None of these findings establishes functional parity without browser tests.
+
+## Priority order before transfer
+1. Complete and test migration intake security, HTML parsing and job persistence.
+2. Implement Webflow extraction and CMS mapping into isolated drafts.
+3. Implement editable DOM/CSS reconstruction with breakpoint-aware styles and linked components.
+4. Implement staging preview, screenshot diffs, accessibility, SEO and form checks.
+5. Implement atomic publishing, deployment history, rollback and explicit approval.
+6. Run end-to-end migration on a nonproduction site and review unsupported features.
