@@ -23,6 +23,7 @@ const siteConfigSchema=z.object({
   canonicalBaseUrl:z.union([z.literal(''),z.string().url().max(2000)]).default(''),
   defaultOgImage:z.union([z.literal(''),z.string().url().max(2000)]).default(''),
   noindex:z.boolean().default(false),
+  redirects:z.array(z.object({from:z.string().regex(/^\/[a-z0-9/-]*$/).max(300),to:z.string().regex(/^\/[a-z0-9/-]*$/).max(300),permanent:z.boolean().default(true)}).refine(v=>v.from!==v.to)).max(200).default([]),
  }).default({}),
  forms:z.object({
   successMessage:z.string().max(500).default('Thanks! Your submission has been received.'),
