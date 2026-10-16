@@ -3,12 +3,13 @@ import { Suspense, useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
+import { FilePlus2, Files, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image';
 type Block = { id: string; type: BlockType; text: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
 type Site = { name: string; blocks: Block[] };
 type DbSite = { id: string; name: string };
+type ProjectPage = { id: string; slug: string; title: string; content: unknown };
 const starter = (name: string): Site => ({ name, blocks: [
   { id: 'hero-title', type: 'heading', text: 'Build something remarkable.', style: { fontSize: 54 } },
   { id: 'hero-copy', type: 'paragraph', text: 'Create, customize and launch your next website.', style: { fontSize: 19 } },
@@ -37,6 +38,11 @@ function Workspace() {
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pages, setPages] = useState<ProjectPage[]>([]);
+  const [pageId, setPageId] = useState('');
+  const [pageTitle, setPageTitle] = useState('Home');
+  const [creatingPage, setCreatingPage] = useState(false);
+  const [newPageName, setNewPageName] = useState('');
   const [error, setError] = useState('');
   const storageKey = 'studio-cms-designer-' + (siteId || 'local');
 
@@ -49,11 +55,21 @@ function Workspace() {
       let value: Site | null = null;
       if (siteId) {
         try {
-          const res = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/home', { cache: 'no-store' });
+          const res = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/pages', { cache: 'no-store' });
           if (!res.ok) throw new Error(res.status === 404 ? 'Project not found.' : 'Unable to load project from database.');
-          const data: { site: DbSite; page: { content: unknown } | null } = await res.json();
+          const data: { site: DbSite; pages: ProjectPage[] } = await res.json();
           projectName = data.site.name;
-          const content = data.page?.content;
+          const available = [...data.pages];
+          if (!available.some(page => page.slug === 'home')) {
+            const homeRes = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/home', { cache: 'no-store' });
+            if (!homeRes.ok) throw new Error('Unable to load homepage.');
+            const homeData: { page: { id: string; content: unknown } | null } = await homeRes.json();
+            if (homeData.page) available.unshift({ ...homeData.page, slug: 'home', title: 'Home' });
+          }
+          if (!cancelled) setPages(available);
+          const active = available.find(page => page.slug === 'home') || available[0];
+          if (!cancelled) { setPageId(active?.id || ''); setPageTitle(active?.title || 'Home'); }
+          const content = active?.content;
           if (content && typeof content === 'object' && !Array.isArray(content) && 'blocks' in content) {
             const blocks = (content as { blocks: unknown }).blocks;
             if (Array.isArray(blocks)) value = { name: projectName, blocks: blocks as Block[] };
@@ -79,6 +95,45 @@ function Workspace() {
     void load();
     return () => { cancelled = true; };
   }, [siteId, storageKey]);
+
+  function openPage(page: ProjectPage) {
+    const content = page.content;
+    const blocks = content && typeof content === 'object' && !Array.isArray(content) && 'blocks' in content && Array.isArray((content as { blocks: unknown }).blocks)
+      ? (content as { blocks: Block[] }).blocks : [];
+    setPageId(page.id);
+    setPageTitle(page.title);
+    setSite(previous => ({ name: previous.name, blocks }));
+    setSelected(blocks[0]?.id || null);
+    setError('');
+  }
+  async function createPage() {
+    const title = newPageName.trim();
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    if (!siteId || !slug) return;
+    setCreatingPage(true);
+    try {
+      const response = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/pages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, slug }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not create page.');
+      const page = result as ProjectPage;
+      setPages(previous => [...previous, page]);
+      openPage(page);
+      setNewPageName('');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not create page.'); }
+    finally { setCreatingPage(false); }
+  }
+  async function deletePage() {
+    if (!siteId || !pageId || pages.find(page=>page.id===pageId)?.slug==='home') return;
+    if (!window.confirm('Delete this page permanently?')) return;
+    const response = await fetch('/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId),{method:'DELETE'});
+    if (!response.ok) { setError('Could not delete page.'); return; }
+    const remaining = pages.filter(page=>page.id!==pageId);
+    setPages(remaining);
+    const next = remaining.find(page=>page.slug==='home') || remaining[0];
+    if (next) openPage(next);
+  }
   const current = site.blocks.find(b => b.id === selected);
   function add(type: BlockType) {
     const block: Block = { id: makeId(), type, text: defaults[type], style: {} };
@@ -160,10 +215,11 @@ function Workspace() {
     setError('');
     try {
       if (siteId) {
-        const response = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/home', {
+        const url = pageId ? '/api/projects/' + encodeURIComponent(siteId) + '/pages/' + encodeURIComponent(pageId) : '/api/projects/' + encodeURIComponent(siteId) + '/home';
+        const response = await fetch(url, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(site),
+          body: JSON.stringify(pageId ? { content: site } : site),
         });
         if (!response.ok) throw new Error('Could not save page to PostgreSQL (' + response.status + ').');
       }
@@ -196,7 +252,7 @@ function Workspace() {
     </aside>
     <div className="builder-main">
       <header className="builder-toolbar">
-        <div className="builder-project"><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">Designer</span></div>
+        <div className="builder-project"><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">{pageTitle} · Designer</span></div>
         <div className="builder-toolbar-actions">
           <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
           <button className={preview?'builder-action active':'builder-action'} onClick={()=>setPreview(v=>!v)}><Eye size={17}/><span>{preview?'Exit preview':'Preview'}</span></button>
@@ -206,7 +262,7 @@ function Workspace() {
       {error && <div className="builder-error" role="alert">{error}</div>}
       <div className={'builder-workspace'+(preview?' is-preview':'')}>
         {!preview && <aside className="builder-left">
-          <div className="builder-tabs"><button className={leftTab==='elements'?'active':''} onClick={()=>setLeftTab('elements')}><Plus size={16}/> Elements</button><button className={leftTab==='layers'?'active':''} onClick={()=>setLeftTab('layers')}><Layers size={16}/> Layers</button></div>
+          <div className="builder-pages"><div className="builder-panel-heading"><strong><Files size={15}/> Pages</strong><span>{pages.length}</span></div><div className="builder-page-list">{pages.map(page=><button key={page.id} className={pageId===page.id?'active':''} onClick={()=>openPage(page)}>{page.title}<small>/{page.slug}</small></button>)}</div><div className="builder-new-page"><input aria-label="New page name" placeholder="New page name" value={newPageName} onChange={event=>setNewPageName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void createPage();}}/><button disabled={!newPageName.trim()||creatingPage} onClick={()=>void createPage()} title="Create page"><FilePlus2 size={16}/></button></div>{pages.find(page=>page.id===pageId)?.slug!=='home'&&pageId&&<button className="builder-remove-page" onClick={()=>void deletePage()}><Trash2 size={14}/> Delete page</button>}</div><div className="builder-tabs"><button className={leftTab==='elements'?'active':''} onClick={()=>setLeftTab('elements')}><Plus size={16}/> Elements</button><button className={leftTab==='layers'?'active':''} onClick={()=>setLeftTab('layers')}><Layers size={16}/> Layers</button></div>
           {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
