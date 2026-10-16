@@ -22,6 +22,13 @@ const starter = (name: string): Site => ({ name, blocks: [
   { id: 'hero-copy', type: 'paragraph', text: 'Create, customize and launch your next website.', style: { fontSize: 19 } },
   { id: 'hero-button', type: 'button', text: 'Get started', style: { background: '#3064fe', color: '#ffffff', radius: 8 } },
 ] });
+function autoClass(type:BlockType,existing:Block[]):string{
+  const used=new Set(existing.flatMap(b=>(b.classNames||'').split(/\s+/).filter(Boolean)));
+  const base='element-'+type;
+  let i=1;
+  while(used.has(base+'-'+i))i++;
+  return base+'-'+i;
+}
 const makeId = () => Math.random().toString(36).slice(2);
 const palette: { type: BlockType; label: string; icon: typeof Type; description: string }[] = [
   { type: 'heading', label: 'Heading', icon: Heading1, description: 'Titles and headings' },
@@ -246,6 +253,24 @@ function Workspace() {
     setClassNameDraft('');
     if(current)updateBlock({classNames:[...(current.classNames||'').split(/\s+/).filter(Boolean),name].join(' ')});
   }
+  function renameClass(name:string){
+    const next=window.prompt('Rename CSS class',name)?.trim();
+    if(!next||next===name)return;
+    if(!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(next)||classRules[next]){setError('Enter a unique, valid CSS class name.');return;}
+    const updated={...classRules,[next]:classRules[name]};
+    delete updated[name];
+    void saveClasses(updated);
+    setSite(previous=>({...previous,blocks:previous.blocks.map(block=>({...block,classNames:(block.classNames||'').split(/\s+/).filter(Boolean).map(value=>value===name?next:value).join(' ')}))}));
+    setSaved(false);
+  }
+  function removeClass(name:string){
+    if(!window.confirm('Delete class .'+name+'? It will be removed from every element on this page.'))return;
+    const updated={...classRules};
+    delete updated[name];
+    void saveClasses(updated);
+    setSite(previous=>({...previous,blocks:previous.blocks.map(block=>({...block,classNames:(block.classNames||'').split(/\s+/).filter(value=>value&&value!==name).join(' ')}))}));
+    setSaved(false);
+  }
   function updateClass(name:string,patch:ClassRule){void saveClasses({...classRules,[name]:{...classRules[name],...patch}});}
   function classStyle(block:Block):React.CSSProperties{
     const result:React.CSSProperties={};
@@ -291,7 +316,7 @@ function Workspace() {
   }
   function useAsset(asset:Asset){
     if(current?.type==='image'){updateBlock({text:asset.url,alt:asset.alt});setRightTab('content');setImagePickerOpen(false);}
-    else{const block:Block={id:makeId(),type:'image',text:asset.url,alt:asset.alt,style:{}};setSite(previous=>({...previous,blocks:[...previous.blocks,block]}));setSelected(block.id);setRightTab('content');}
+    else{const block:Block={id:makeId(),type:'image',text:asset.url,alt:asset.alt,classNames:autoClass('image',site.blocks),style:{}};setSite(previous=>({...previous,blocks:[...previous.blocks,block]}));setSelected(block.id);setRightTab('content');}
   }
   function openPage(page: ProjectPage) {
     setHistoryReady(false);
@@ -337,7 +362,7 @@ function Workspace() {
   const current = site.blocks.find(b => b.id === selected);
   function updateSeo(patch: Partial<Seo>) { setSite(previous => ({ ...previous, seo: { title:'',description:'',noindex:false,ogImage:'',...previous.seo,...patch } })); }
   function add(type: BlockType) {
-    const block: Block = { id: makeId(), type, text: defaults[type], style: {} };
+    const block: Block = { id: makeId(), type, text: defaults[type], classNames:autoClass(type,site.blocks), style: {} };
     setSite(s => ({ ...s, blocks: [...s.blocks, block] }));
     setSelected(block.id);
     setLeftTab('layers');
@@ -346,7 +371,8 @@ function Workspace() {
   }
 
   function insertSection(preset: SectionPreset) {
-    const blocks: Block[] = preset.blocks.map(block=>({...block,id:makeId(),style:{...block.style}}));
+    const reserved=[...site.blocks];
+    const blocks: Block[] = preset.blocks.map(block=>{const next:Block={...block,id:makeId(),classNames:autoClass(block.type,reserved),style:{...block.style}};reserved.push(next);return next;});
     setSite(previous=>({...previous,blocks:[...previous.blocks,...blocks]}));
     setSelected(blocks[0]?.id||null);
     setLeftTab('layers');
@@ -378,7 +404,7 @@ function Workspace() {
     try { payload = JSON.parse(raw); } catch { return; }
     if (payload.type === 'new') {
       if (!palette.some(item => item.type === payload.blockType)) return;
-      const block: Block = { id: makeId(), type: payload.blockType, text: defaults[payload.blockType], style: {} };
+      const block: Block = { id: makeId(), type: payload.blockType, text: defaults[payload.blockType], classNames:autoClass(payload.blockType,site.blocks), style: {} };
       setSite(prev => ({ ...prev, blocks: [...prev.blocks.slice(0, index), block, ...prev.blocks.slice(index)] }));
       setSelected(block.id);
       setRightTab('content');
@@ -516,7 +542,7 @@ function Workspace() {
         </div></div>
         {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button><button className={rightTab==='seo'?'active':''} onClick={()=>setRightTab('seo')}>SEO</button></div>
           {rightTab==='seo' ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page SEO</strong></div><label htmlFor="seo-title">Search title</label><input id="seo-title" maxLength={70} value={site.seo?.title||''} onChange={e=>updateSeo({title:e.target.value})}/><label htmlFor="seo-description">Meta description</label><textarea id="seo-description" rows={5} maxLength={320} value={site.seo?.description||''} onChange={e=>updateSeo({description:e.target.value})}/><label htmlFor="seo-image">Social image URL</label><input id="seo-image" type="url" value={site.seo?.ogImage||''} onChange={e=>updateSeo({ogImage:e.target.value})}/><label className="builder-seo-toggle"><input type="checkbox" checked={site.seo?.noindex||false} onChange={e=>updateSeo({noindex:e.target.checked})}/> Noindex</label><p className="builder-hint">SEO values are saved with the page. Public metadata rendering is not implemented yet.</p></div> : current ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>{current.type.charAt(0).toUpperCase()+current.type.slice(1)}</strong><button onClick={remove} className="builder-icon-danger" title="Delete element" aria-label="Delete element"><Trash2 size={17}/></button></div>
-            <div className="builder-class-manager"><div className="builder-layout-heading">Reusable classes</div><div className="builder-class-add"><input aria-label="New class name" placeholder="e.g. card-title" value={classNameDraft} onChange={e=>setClassNameDraft(e.target.value)}/><button disabled={classSaving||!siteId} onClick={addClass}>Create</button></div>{Object.entries(classRules).map(([name,rule])=><div className="builder-class-rule" key={name}><div><strong>.{name}</strong><button disabled={classSaving} onClick={()=>{if(!current)return;const names=new Set((current.classNames||'').split(/\s+/).filter(Boolean));if(names.has(name))names.delete(name);else names.add(name);updateBlock({classNames:[...names].join(' ')});}}>{(current.classNames||'').split(/\s+/).includes(name)?'Remove':'Apply'}</button></div><label>Text color</label><input type="color" value={rule.color||'#131827'} onChange={e=>updateClass(name,{color:e.target.value})}/><label>Background</label><input type="color" value={rule.background||'#ffffff'} onChange={e=>updateClass(name,{background:e.target.value})}/><label>Font size (px)</label><input type="number" min="8" max="200" value={rule.fontSize??16} onChange={e=>updateClass(name,{fontSize:Number(e.target.value)})}/><label>Padding (px)</label><input type="number" min="0" max="300" value={rule.padding??0} onChange={e=>updateClass(name,{padding:Number(e.target.value)})}/><label>Radius (px)</label><input type="number" min="0" max="200" value={rule.radius??0} onChange={e=>updateClass(name,{radius:Number(e.target.value)})}/></div>)}</div><div className="builder-technical-panel"><div className="builder-layout-heading">Element attributes</div><label htmlFor="builder-html-id">HTML ID</label><input id="builder-html-id" value={current.htmlId||''} placeholder="hero-title" onChange={e=>updateBlock({htmlId:e.target.value})}/><label htmlFor="builder-css-class">CSS class names</label><input id="builder-css-class" value={current.classNames||''} placeholder="hero-heading text-large" onChange={e=>updateBlock({classNames:e.target.value})}/>{current.type==='image'&&<><label htmlFor="builder-alt">Image alt text</label><input id="builder-alt" value={current.alt||''} onChange={e=>updateBlock({alt:e.target.value})}/><button onClick={()=>setLeftTab('assets')}>Open asset library →</button></>}{current.type==='button'&&<><label htmlFor="builder-href">Button link</label><input id="builder-href" value={current.href||''} placeholder="/contact or https://example.com" onChange={e=>updateBlock({href:e.target.value})}/></>}<p className="builder-hint">IDs must start with a letter and be unique on each page. Classes use letters, numbers, underscores and hyphens.</p></div>
+            <div className="builder-class-manager"><div className="builder-layout-heading">Reusable classes</div><div className="builder-class-add"><input aria-label="New class name" placeholder="e.g. card-title" value={classNameDraft} onChange={e=>setClassNameDraft(e.target.value)}/><button disabled={classSaving||!siteId} onClick={addClass}>Create</button></div>{Object.entries(classRules).map(([name,rule])=><div className="builder-class-rule" key={name}><div><strong>.{name}</strong><button disabled={classSaving} onClick={()=>renameClass(name)}>Rename</button><button disabled={classSaving} onClick={()=>removeClass(name)}>Delete</button><button disabled={classSaving} onClick={()=>{if(!current)return;const names=new Set((current.classNames||'').split(/\s+/).filter(Boolean));if(names.has(name))names.delete(name);else names.add(name);updateBlock({classNames:[...names].join(' ')});}}>{(current.classNames||'').split(/\s+/).includes(name)?'Remove':'Apply'}</button></div><label>Text color</label><input type="color" value={rule.color||'#131827'} onChange={e=>updateClass(name,{color:e.target.value})}/><label>Background</label><input type="color" value={rule.background||'#ffffff'} onChange={e=>updateClass(name,{background:e.target.value})}/><label>Font size (px)</label><input type="number" min="8" max="200" value={rule.fontSize??16} onChange={e=>updateClass(name,{fontSize:Number(e.target.value)})}/><label>Padding (px)</label><input type="number" min="0" max="300" value={rule.padding??0} onChange={e=>updateClass(name,{padding:Number(e.target.value)})}/><label>Radius (px)</label><input type="number" min="0" max="200" value={rule.radius??0} onChange={e=>updateClass(name,{radius:Number(e.target.value)})}/></div>)}</div><div className="builder-technical-panel"><div className="builder-layout-heading">Element attributes</div><label htmlFor="builder-html-id">HTML ID</label><input id="builder-html-id" value={current.htmlId||''} placeholder="hero-title" onChange={e=>updateBlock({htmlId:e.target.value})}/><label htmlFor="builder-css-class">CSS class names</label><input id="builder-css-class" value={current.classNames||''} placeholder="hero-heading text-large" onChange={e=>updateBlock({classNames:e.target.value})}/>{current.type==='image'&&<><label htmlFor="builder-alt">Image alt text</label><input id="builder-alt" value={current.alt||''} onChange={e=>updateBlock({alt:e.target.value})}/><button onClick={()=>setLeftTab('assets')}>Open asset library →</button></>}{current.type==='button'&&<><label htmlFor="builder-href">Button link</label><input id="builder-href" value={current.href||''} placeholder="/contact or https://example.com" onChange={e=>updateBlock({href:e.target.value})}/></>}<p className="builder-hint">IDs must start with a letter and be unique on each page. Classes use letters, numbers, underscores and hyphens.</p></div>
             {rightTab==='content' ? current.type==='cms-list' ? <><label htmlFor="builder-collection">CMS collection</label><select id="builder-collection" value={current.collectionId||''} onChange={e=>updateBlock({collectionId:e.target.value,displayField:''})}><option value="">Choose collection</option>{collections.map(collection=><option key={collection.id} value={collection.id}>{collection.name}</option>)}</select><label htmlFor="builder-display-field">Card heading field</label><select id="builder-display-field" value={current.displayField||''} onChange={e=>updateBlock({displayField:e.target.value})}><option value="">First field</option>{collections.find(collection=>collection.id===current.collectionId)?.fields?.map(field=><option key={field.name} value={field.name}>{field.name}</option>)}</select><p className="builder-hint">Only published entries are displayed. Manage collection content in CMS.</p><Link href={'/cms?siteId='+encodeURIComponent(siteId)}>Manage CMS →</Link></> : current.type==='image'?<div className="builder-image-source"><strong>Image source</strong>{current.text&&<img className="builder-image-source-preview" src={current.text} alt={current.alt||''}/>}<button className="primary" onClick={()=>{void refreshAssets();setImagePickerOpen(true);}}>Choose from Assets</button><label className="builder-upload-zone">Upload new image<input type="file" accept="image/png,image/jpeg,image/webp" disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files,true);e.target.value='';}}/></label>{assetBusy&&<p>Uploading…</p>}<p className="builder-hint">Upload or select an image. The element updates automatically.</p></div>:<><label htmlFor="builder-content">Text content</label><textarea id="builder-content" rows={current.type==='paragraph'?8:4} value={current.text} onChange={e=>updateBlock({text:e.target.value})}/><p className="builder-hint">Changes appear immediately on the canvas.</p></> :
             <><label htmlFor="builder-color">Text color</label><div className="builder-color-control"><input id="builder-color" type="color" value={current.style?.color||'#131827'} onChange={e=>updateStyle({color:e.target.value})}/><span>{current.style?.color||'Default'}</span></div>
               <label htmlFor="builder-bg">Background color</label><div className="builder-color-control"><input id="builder-bg" type="color" value={current.style?.background||'#ffffff'} onChange={e=>updateStyle({background:e.target.value})}/><span>{current.style?.background||'Default'}</span></div>
