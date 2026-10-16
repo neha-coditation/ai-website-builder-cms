@@ -5,8 +5,10 @@ import { prisma } from '../../../../../lib/prisma';
 
 const block = z.object({
   id: z.string().min(1).max(120),
-  type: z.enum(['heading', 'paragraph', 'button', 'image']),
+  type: z.enum(['heading', 'paragraph', 'button', 'image', 'cms-list']),
   text: z.string().max(100000),
+  collectionId: z.string().max(120).optional(),
+  displayField: z.string().max(120).optional(),
   style: z.object({
     color: z.string().optional(),
     background: z.string().optional(),
