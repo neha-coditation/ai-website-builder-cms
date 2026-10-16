@@ -46,3 +46,6 @@
 
 /* Phase 14: nested layout containers */
 .builder-layout-container{width:100%;min-height:100px;box-sizing:border-box;border:1px dashed #b4c4dc;align-items:stretch}.builder-layout-container>.builder-block{min-width:0;width:auto;max-width:100%;box-sizing:border-box;cursor:pointer}.builder-layout-container>.builder-block.selected{outline:2px solid #3064fe;outline-offset:2px}.builder-container-placeholder{display:flex;align-items:center;justify-content:center;gap:8px;min-height:80px;color:#72819b;font-size:13px;text-align:center}.builder-canvas.mobile .builder-layout-container{display:flex!important;flex-direction:column!important;grid-template-columns:none!important}.builder-layout-container img{max-width:100%;height:auto}
+
+/* Phase 15: edit history toolbar */
+.builder-history-actions{display:flex;align-items:center;gap:4px;border-right:1px solid rgba(130,150,185,.2);padding-right:10px;margin-right:4px}.builder-history-actions button:disabled{opacity:.35;cursor:not-allowed}.builder-history-actions button:not(:disabled):hover{color:#8fb0ff}
