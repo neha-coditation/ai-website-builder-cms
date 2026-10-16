@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../../../../../../lib/prisma';
 
 const style = z.object({ color: z.string().optional(), background: z.string().optional(), fontSize: z.number().finite().min(0).max(500).optional(), padding: z.number().finite().min(0).max(1000).optional(), radius: z.number().finite().min(0).max(1000).optional(), align: z.enum(['left','center','right']).optional() }).optional();
-const block = z.object({ id: z.string().min(1).max(120), type: z.enum(['heading','paragraph','button','image']), text: z.string().max(100000), style });
+const block = z.object({ id: z.string().min(1).max(120), type: z.enum(['heading','paragraph','button','image','cms-list']), text: z.string().max(100000), collectionId: z.string().max(120).optional(), displayField: z.string().max(120).optional(), style });
 const seoSchema = z.object({
   title: z.string().max(70).default(''),
   description: z.string().max(320).default(''),
