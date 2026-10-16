@@ -39,3 +39,6 @@
 
 /* Phase 12: ready-made page sections */
 .builder-section-presets{margin-top:20px;padding-top:16px;border-top:1px solid rgba(130,150,185,.18)}.builder-section-preset{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;background:rgba(125,150,200,.06);border:1px solid rgba(140,160,195,.2);border-radius:10px;padding:12px;margin:9px 0;color:inherit;cursor:pointer}.builder-section-preset:hover,.builder-section-preset:focus-visible{border-color:#3064fe;background:rgba(48,100,254,.11)}.builder-section-preset span{display:flex;flex-direction:column;gap:5px}.builder-section-preset strong{font-size:13px}.builder-section-preset small{font-size:11px;color:#94a2b9;line-height:1.5}.builder-section-preset svg{flex-shrink:0;color:#8cafff}
+
+/* Phase 13 responsive element sizing */
+.builder-layout-heading{margin-top:22px;padding-top:16px;border-top:1px solid rgba(130,150,185,.25);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a5b7d8}.builder-site-body .builder-block{box-sizing:border-box;min-width:0}.builder-site-body .builder-block img{max-width:100%;height:auto}.builder-canvas.mobile .builder-site-body .builder-block{width:100%!important;max-width:100%!important}
