@@ -396,6 +396,7 @@ function Workspace() {
         <div className="builder-project"><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">{pageTitle} · Designer</span></div>
         <div className="builder-toolbar-actions">
           <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
+          <div className="builder-history-actions" role="group" aria-label="Edit history"><button type="button" className="builder-action" title="Undo (⌘/Ctrl+Z)" aria-label="Undo" disabled={!canUndo||preview} onClick={undo}><Undo2 size={17}/></button><button type="button" className="builder-action" title="Redo (⌘/Ctrl+Shift+Z)" aria-label="Redo" disabled={!canRedo||preview} onClick={redo}><Redo2 size={17}/></button></div>
           <button className={preview?'builder-action active':'builder-action'} onClick={()=>setPreview(v=>!v)}><Eye size={17}/><span>{preview?'Exit preview':'Preview'}</span></button>
           <button className="primary" onClick={()=>void save()} disabled={!loaded||saving}><Save size={16}/>{saving?'Saving…':saved?'Saved':'Save'}</button>
         </div>
