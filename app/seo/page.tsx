@@ -1,9 +1,9 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {Suspense,useEffect,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 type Issue={severity:'error'|'warning';page:string;code:string;message:string};
 type Report={slug:string;pages:{id:string;path:string;title:string;description:string}[];issues:Issue[];summary:{pages:number;errors:number;warnings:number};previewOnly:boolean};
-export default function SeoPage(){
+function SeoPageContent(){
  const params=useSearchParams();const siteId=params.get('siteId')||'';
  const [report,setReport]=useState<Report|null>(null);const [error,setError]=useState('');const [loading,setLoading]=useState(false);
  async function run(){if(!siteId)return;setLoading(true);setError('');try{const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/seo-audit',{cache:'no-store'});if(!response.ok)throw new Error('Audit request failed: '+response.status);setReport(await response.json());}catch(e){setError(e instanceof Error?e.message:'Unable to run audit')}finally{setLoading(false)}}
@@ -18,3 +18,5 @@ export default function SeoPage(){
   <h2>Pages</h2><table style={{width:'100%',textAlign:'left',borderCollapse:'collapse'}}><thead><tr><th>Path</th><th>SEO title</th><th>Description</th></tr></thead><tbody>{report.pages.map(page=><tr key={page.id}><td>{page.path}</td><td>{page.title||'Missing'}</td><td>{page.description||'Missing'}</td></tr>)}</tbody></table></>}
  </main>
 }
+
+export default function SeoPage(){return <Suspense fallback={<main style={{padding:40}}>Loading SEO Manager…</main>}><SeoPageContent/></Suspense>}
