@@ -58,3 +58,5 @@
 
 /* Phase 18: reusable class editor */
 .builder-class-manager{border:1px solid rgba(130,150,185,.22);border-radius:12px;padding:12px;margin:12px 0 20px}.builder-class-add{display:flex;gap:6px}.builder-class-add input{min-width:0;flex:1}.builder-class-add button{flex:none}.builder-class-rule{border-top:1px solid rgba(130,150,185,.2);margin-top:12px;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:7px}.builder-class-rule>div{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}.builder-class-rule label{font-size:11px}.builder-class-rule input{width:100%;min-width:0;box-sizing:border-box}.builder-class-rule input[type=color]{height:32px;padding:2px}.builder-class-rule button{font-size:12px}
+
+.builder-upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:110px;border:1px dashed #6e8ce5;border-radius:12px;padding:16px;margin:12px 0;cursor:pointer;text-align:center;background:rgba(48,100,254,.06)}.builder-upload-zone input{max-width:100%;font-size:12px}
