@@ -171,3 +171,5 @@
 .builder-section-preset>span{min-width:0}
 .builder-element-grid button{position:relative;min-width:0;gap:7px;transition:background .15s,border-color .15s}
 .builder-element-grid button:hover{border-color:#6485d9;background:#202d46}
+
+.builder-component-link{display:flex;flex-direction:column;gap:7px;padding:12px;margin-bottom:12px;border:1px solid #3d5480;border-radius:8px;background:#17253e}.builder-component-link span{font-size:12px;color:#c6d7f5}.builder-component-link button{align-self:flex-start;padding:7px 10px;border:1px solid #5b76ab;border-radius:6px}
