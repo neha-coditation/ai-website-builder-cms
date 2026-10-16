@@ -11,6 +11,14 @@ model Site {
   id          String          @id @default(cuid())
   name        String
   slug        String          @unique
+  description String          @default("")
+  faviconUrl  String          @default("")
+  defaultTitle String         @default("")
+  globalDesign Json           @default("{}")
+  siteConfig  Json           @default("{}")
+  assets      SiteAsset[]
+  components  SiteComponent[]
+  submissions FormSubmission[]
   pages       Page[]
   collections CmsCollection[]
   createdAt   DateTime        @default(now())
@@ -52,4 +60,39 @@ model CmsEntry {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   @@unique([collectionId, slug])
+}
+
+model SiteAsset {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  alt       String   @default("")
+  createdAt DateTime @default(now())
+  @@index([siteId, createdAt])
+}
+
+model SiteComponent {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  blocks    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([siteId, createdAt])
+}
+
+model FormSubmission {
+  id String @id @default(cuid())
+  siteId String
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  formId String
+  pageSlug String
+  data Json
+  status String @default("new")
+  createdAt DateTime @default(now())
+  @@index([siteId, createdAt])
+  @@index([siteId, formId, createdAt])
 }
