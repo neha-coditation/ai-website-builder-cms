@@ -1,14 +1,75 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {LayoutDashboard,PanelsTopLeft,Database,Settings,Plus,Save,Eye,Monitor,Smartphone,Trash2,ArrowLeft,Upload,Type,Image as ImageIcon} from 'lucide-react';
-type Block={id:string,type:'heading'|'paragraph'|'button'|'image',text:string};
-type Site={name:string,blocks:Block[]};
-const initial:Site={name:'My first website',blocks:[{id:'a',type:'heading',text:'Build something remarkable.'},{id:'b',type:'paragraph',text:'Your new website starts here. Click any element to edit it.'},{id:'c',type:'button',text:'Get in touch'}]};
-const makeId=()=>Math.random().toString(36).slice(2);
-export default function Home(){const [site,setSite]=useState<Site>(initial);const [tab,setTab]=useState('designer');const [selected,setSelected]=useState('a');const [mobile,setMobile]=useState(false);const [ready,setReady]=useState(false);const [saved,setSaved]=useState(false);
-useEffect(()=>{try{const v=localStorage.getItem('studio-cms-project');if(v)setSite(JSON.parse(v))}catch{}setReady(true)},[]);
-const save=()=>{localStorage.setItem('studio-cms-project',JSON.stringify(site));setSaved(true);setTimeout(()=>setSaved(false),1800)};
-const add=(type:Block['type'])=>{const b={id:makeId(),type,text:type==='heading'?'New heading':type==='paragraph'?'Add your text here':type==='button'?'Learn more':'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200'};setSite(s=>({...s,blocks:[...s.blocks,b]}));setSelected(b.id)};
-const update=(id:string,text:string)=>setSite(s=>({...s,blocks:s.blocks.map(b=>b.id===id?{...b,text}:b)}));
-const current=site.blocks.find(b=>b.id===selected);
-return <div className="shell"><aside className="sidebar"><div className="brand"><span className="brandicon">✦</span> Studio<span className="muted">CMS</span></div><div className="section">WORKSPACE</div>{[['dashboard',LayoutDashboard,'Dashboard'],['designer',PanelsTopLeft,'Designer'],['cms',Database,'CMS Collections'],['settings',Settings,'Settings']].map(([key,Icon,label]:any)=><button key={key} className={'nav '+(tab===key?'active':'')} onClick={()=>setTab(key)}><Icon size={17}/>{label}</button>)}<div className="bottom">Local starter · v0.3</div></aside><main><header><div><span className="muted">Workspace / </span><input className="name" value={site.name} onChange={e=>setSite({...site,name:e.target.value})}/></div><div className="actions"><button onClick={()=>setMobile(!mobile)}>{mobile?<Monitor size={16}/>:<Smartphone size={16}/>} {mobile?'Desktop':'Mobile'}</button><button onClick={()=>setTab('preview')}><Eye size={16}/> Preview</button><button className="primary" onClick={save}><Save size={16}/>{saved?'Saved':'Save project'}</button></div></header>{tab==='dashboard'?<section className="dashboard"><h1>Welcome to Studio CMS</h1><p>Create, design, and manage your websites.</p><div className="project" onClick={()=>setTab('designer')}><PanelsTopLeft/><h3>{site.name}</h3><span>Open designer →</span></div><button className="primary" onClick={()=>{if(confirm('Start a blank project? This replaces unsaved work.')){setSite({name:'Untitled website',blocks:[]});setTab('designer')}}}><Plus size={16}/> New blank website</button></section>:tab==='cms'?<section className="dashboard"><h1>CMS Collections</h1><p>Manage collections, custom fields, draft and published entries in the database.</p><a className="primary" href="/cms" style={{display:'inline-flex',padding:'12px 18px',borderRadius:8,textDecoration:'none'}}>Open CMS editor →</a></section>:tab==='settings'?<section className="dashboard"><h1>Project settings</h1><p>Project data is currently stored in this browser using localStorage.</p><button onClick={()=>{const blob=new Blob([JSON.stringify(site,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='site.json';a.click();URL.revokeObjectURL(a.href)}}><Upload size={16}/> Export project JSON</button></section>:<div className={'workspace '+(tab==='preview'?'preview':'')} >{tab!=='preview'&&<div className="panel"><div className="paneltitle">ADD ELEMENTS</div>{(['heading','paragraph','button','image'] as const).map(t=><button className="add" key={t} onClick={()=>add(t)}><Plus size={14}/>{t}</button>)}<div className="paneltitle gap">LAYERS</div>{site.blocks.map((b,i)=><button className={'layer '+(selected===b.id?'selected':'')} key={b.id} onClick={()=>setSelected(b.id)}>{i+1}. {b.type}</button>)}</div>}<div className="canvaswrap"><div className={'canvas '+(mobile?'mobile':'')}><nav className="site-nav"><strong>{site.name}</strong><span>Home　 About　 Contact</span></nav><div className="sitebody">{site.blocks.map(b=><div key={b.id} className={'block '+(selected===b.id&&tab!=='preview'?'highlight':'')} onClick={()=>setSelected(b.id)}>{b.type==='heading'?<h1>{b.text}</h1>:b.type==='paragraph'?<p>{b.text}</p>:b.type==='button'?<button className="cta">{b.text}</button>:<img src={b.text} alt="Website content"/>}</div>)}</div><footer>© {new Date().getFullYear()} {site.name}</footer></div></div>{tab!=='preview'&&<div className="panel right"><div className="paneltitle">PROPERTIES</div>{current?<><label>Element type</label><div className="field muted">{current.type}</div><label>{current.type==='image'?'Image URL':'Content'}</label><textarea value={current.text} onChange={e=>update(current.id,e.target.value)} rows={6}/><button className="delete" onClick={()=>{setSite(s=>({...s,blocks:s.blocks.filter(b=>b.id!==selected)}));setSelected('')}}><Trash2 size={15}/> Remove element</button></>:<p className="muted">Select an element on the canvas.</p>}</div>}</div>}</main></div>}
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Database, FolderOpen, Globe, LayoutDashboard, Plus, Search, Settings2 } from 'lucide-react';
+
+type Site = { id: string; name: string; slug: string; updatedAt: string };
+const slugify = (name: string) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+export default function Dashboard() {
+  const [sites, setSites] = useState<Site[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function loadSites() {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/sites', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Could not load projects. Check the database connection and Prisma migrations.');
+      setSites(await response.json());
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to load projects.');
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { void loadSites(); }, []);
+
+  async function createSite(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      const response = await fetch('/api/sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), slug: slugify(name) + '-' + Date.now().toString(36) }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not create website.');
+      setCreating(false);
+      setName('');
+      await loadSites();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not create website.');
+    } finally { setSaving(false); }
+  }
+
+  const visible = sites.filter(site => (site.name + ' ' + site.slug).toLowerCase().includes(query.toLowerCase()));
+  return <div className="hub">
+    <aside className="hub-sidebar">
+      <Link className="hub-logo" href="/"><span className="brandicon">✦</span> Studio<span className="muted">CMS</span></Link>
+      <div className="section">WORKSPACE</div>
+      <Link className="hub-nav active" href="/"><LayoutDashboard size={18}/> Dashboard</Link>
+      <div className="hub-nav muted"><FolderOpen size={18}/> Projects</div>
+      <div className="hub-sidebar-foot">Website Builder · Local development</div>
+    </aside>
+    <main className="hub-main">
+      <div className="hub-top"><span>Workspace / Dashboard</span><span className="hub-top-status">Local workspace</span></div>
+      <div className="hub-content">
+        <div className="hub-heading"><div><p className="hub-eyebrow">YOUR WORKSPACE</p><h1>Dashboard</h1><p>Manage your websites and start something new.</p></div><button className="primary" onClick={() => setCreating(true)}><Plus size={17}/> New website</button></div>
+        <div className="hub-stats"><div><strong>{sites.length}</strong><span>Total websites</span></div><div><strong>{sites.length}</strong><span>Projects in workspace</span></div><div><strong>Local</strong><span>Environment</span></div></div>
+        <div className="hub-list-head"><div><h2>All projects</h2><p>Open a website to access its designer and CMS.</p></div><div className="hub-search"><Search size={16}/><input aria-label="Search projects" placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)}/></div></div>
+        {error && <div className="hub-error" role="alert">{error} <button onClick={()=>void loadSites()}>Retry</button></div>}
+        {loading ? <p className="hub-muted">Loading projects…</p> : visible.length ? <div className="hub-grid">{visible.map(site=><article className="hub-project" key={site.id}>
+          <div className="hub-project-art"><Globe size={34}/></div><div className="hub-project-body"><h3>{site.name}</h3><p>/{site.slug}</p><small>Updated {new Date(site.updatedAt).toLocaleDateString()}</small><div className="hub-project-actions"><Link href={'/designer?siteId='+encodeURIComponent(site.id)}>Open designer <ArrowRight size={15}/></Link><Link href={'/cms?siteId='+encodeURIComponent(site.id)}><Database size={15}/> CMS</Link></div></div>
+        </article>)}</div> : <div className="hub-empty"><FolderOpen size={36}/><h3>{query ? 'No matching projects' : 'No websites yet'}</h3><p>{query ? 'Try another search.' : 'Create your first website to get started.'}</p>{!query && <button className="primary" onClick={()=>setCreating(true)}><Plus size={16}/> Create website</button>}</div>}
+      </div>
+    </main>
+    {creating && <div className="hub-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setCreating(false)}}><form className="hub-modal" onSubmit={createSite}><div className="hub-modal-icon"><Settings2 size={22}/></div><h2>Create website</h2><p>Give your new project a name. You can edit its content after creation.</p><label htmlFor="project-name">Website name</label><input id="project-name" autoFocus maxLength={120} required placeholder="e.g. My portfolio" value={name} onChange={e=>setName(e.target.value)}/><div className="hub-modal-actions"><button type="button" onClick={()=>setCreating(false)}>Cancel</button><button className="primary" disabled={saving || !slugify(name)} type="submit">{saving ? 'Creating…' : 'Create website'}</button></div></form></div>}
+  </div>;
+}
