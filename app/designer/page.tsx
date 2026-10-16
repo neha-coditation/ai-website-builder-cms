@@ -1,5 +1,6 @@
 'use client';
 import { Suspense, useEffect, useState } from 'react';
+import type { DragEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
@@ -32,6 +33,8 @@ function Workspace() {
   const [rightTab, setRightTab] = useState<'content'|'style'>('content');
   const [preview, setPreview] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const storageKey = 'studio-cms-designer-' + (siteId || 'local');
@@ -71,6 +74,53 @@ function Workspace() {
     setLeftTab('layers');
     setRightTab('content');
     setPreview(false);
+  }
+
+  const dragMime = 'application/x-studio-cms-block';
+  function startDrag(event: DragEvent<HTMLElement>, payload: { type: 'new'; blockType: BlockType } | { type: 'move'; id: string }) {
+    event.dataTransfer.effectAllowed = payload.type === 'new' ? 'copy' : 'move';
+    event.dataTransfer.setData(dragMime, JSON.stringify(payload));
+    event.dataTransfer.setData('text/plain', payload.type === 'new' ? payload.blockType : payload.id);
+    setDragging(true);
+  }
+  function endDrag() { setDragging(false); setDropIndex(null); }
+  function acceptDrag(event: DragEvent<HTMLElement>, index: number) {
+    if (!event.dataTransfer.types.includes(dragMime)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDropIndex(index);
+  }
+  function dropBlock(event: DragEvent<HTMLElement>, index: number) {
+    event.preventDefault();
+    const raw = event.dataTransfer.getData(dragMime);
+    endDrag();
+    if (!raw) return;
+    let payload: { type: 'new'; blockType: BlockType } | { type: 'move'; id: string };
+    try { payload = JSON.parse(raw); } catch { return; }
+    if (payload.type === 'new') {
+      if (!palette.some(item => item.type === payload.blockType)) return;
+      const block: Block = { id: makeId(), type: payload.blockType, text: defaults[payload.blockType], style: {} };
+      setSite(prev => ({ ...prev, blocks: [...prev.blocks.slice(0, index), block, ...prev.blocks.slice(index)] }));
+      setSelected(block.id);
+      setRightTab('content');
+    } else if (payload.type === 'move') {
+      setSite(prev => {
+        const from = prev.blocks.findIndex(block => block.id === payload.id);
+        if (from < 0) return prev;
+        const blocks = [...prev.blocks];
+        const [block] = blocks.splice(from, 1);
+        blocks.splice(Math.max(0, Math.min(index - (from < index ? 1 : 0), blocks.length)), 0, block);
+        return { ...prev, blocks };
+      });
+      setSelected(payload.id);
+    }
+  }
+  function dropZone(index: number) {
+    return <div key={'drop-'+index} className={'builder-drop-zone'+(dropIndex === index ? ' is-over' : '')}
+      onDragOver={event => acceptDrag(event, index)}
+      onDragEnter={event => acceptDrag(event, index)}
+      onDrop={event => dropBlock(event, index)}
+      aria-hidden="true"><span>Drop here</span></div>;
   }
   function updateBlock(patch: Partial<Block>) {
     if (!selected) return;
@@ -128,11 +178,22 @@ function Workspace() {
       <div className={'builder-workspace'+(preview?' is-preview':'')}>
         {!preview && <aside className="builder-left">
           <div className="builder-tabs"><button className={leftTab==='elements'?'active':''} onClick={()=>setLeftTab('elements')}><Plus size={16}/> Elements</button><button className={leftTab==='layers'?'active':''} onClick={()=>setLeftTab('layers')}><Layers size={16}/> Layers</button></div>
-          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Click an element to add it to your page.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
+          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
           <div className="builder-site-header"><strong>{site.name}</strong><span>Home　 About　 Contact</span></div>
-          <div className="builder-site-body">{site.blocks.map(b=><div key={b.id} className={'builder-block'+(selected===b.id&&!preview?' selected':'')} onClick={()=>{if(!preview){setSelected(b.id);setRightTab('content');}}}>{renderBlock(b)}</div>)}{site.blocks.length===0&&<div className="builder-empty-canvas">Add elements to start designing your page.</div>}</div>
+          <div className={'builder-site-body'+(dragging?' is-dragging':'')} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
+            {site.blocks.map((b,index)=><div key={b.id}>
+              {!preview && dropZone(index)}
+              <div className={'builder-block'+(selected===b.id&&!preview?' selected':'')} draggable={!preview}
+                onDragStart={event=>startDrag(event,{type:'move',id:b.id})} onDragEnd={endDrag}
+                onDragOver={event=>{if(preview)return;const rect=event.currentTarget.getBoundingClientRect();acceptDrag(event,index+(event.clientY>rect.top+rect.height/2?1:0));}}
+                onDrop={event=>{if(preview)return;const rect=event.currentTarget.getBoundingClientRect();dropBlock(event,index+(event.clientY>rect.top+rect.height/2?1:0));}}
+                onClick={()=>{if(!preview){setSelected(b.id);setRightTab('content');}}}>{renderBlock(b)}</div>
+            </div>)}
+            {!preview && dropZone(site.blocks.length)}
+            {site.blocks.length===0&&<div className="builder-empty-canvas">Drag elements here to start designing your page.</div>}
+          </div>
           <div className="builder-site-footer">© {new Date().getFullYear()} {site.name}</div>
         </div></div>
         {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button></div>
