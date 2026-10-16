@@ -247,3 +247,18 @@
 .studio-workspace-notice p{color:#a4b7d3;font-size:13px;line-height:1.6}.studio-workspace-notice a{color:#9abaff;font-size:12px}
 @media(max-width:1050px){.studio-workspace-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:750px){.studio-workspace{display:block}.studio-workspace-nav{position:static;width:auto;height:auto;display:flex;flex-direction:row;flex-wrap:wrap;padding:12px}.studio-workspace-nav a{padding:8px}.studio-workspace-nav-label,.studio-workspace-nav-foot{display:none}.studio-workspace-nav .studio-workspace-brand{margin:0}.studio-workspace-summary{grid-template-columns:1fr}.studio-workspace-grid{grid-template-columns:1fr}}
+
+
+/* Phase 39: private admin sign-in */
+.studio-login-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#19315c 0%,#0b1220 52%,#080d16 100%);color:#eef4ff}
+.studio-login-card{width:min(100%,430px);display:flex;flex-direction:column;gap:12px;padding:38px;background:#121c2d;border:1px solid #304362;border-radius:18px;box-shadow:0 20px 90px #0005}
+.studio-login-logo{font-size:19px;font-weight:800;margin-bottom:23px}
+.studio-login-card>p{color:#8baded;font-size:11px;letter-spacing:.16em;font-weight:700;margin:0}
+.studio-login-card h1{font-size:30px;letter-spacing:-.04em;margin:0}
+.studio-login-card>span{font-size:13px;line-height:1.6;color:#a8bad5;margin-bottom:18px}
+.studio-login-card label{font-size:12px;font-weight:650}
+.studio-login-card input{width:100%;padding:13px;border:1px solid #405271;border-radius:9px;background:#0e1726;color:#fff}
+.studio-login-card input:focus-visible{outline:2px solid #729aff;outline-offset:2px}
+.studio-login-card button{justify-content:center;padding:13px;background:#3064fe;border:1px solid #5282ff;font-weight:650}
+.studio-login-card small{color:#879bb9;font-size:11px;text-align:center;margin-top:12px}
+.studio-login-error{padding:10px;border:1px solid #a64c57;border-radius:7px;color:#ffc6cd;font-size:12px}
