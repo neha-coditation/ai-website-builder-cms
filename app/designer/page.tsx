@@ -527,6 +527,18 @@ function Workspace() {
       marginBottom: b.style?.marginBottom===undefined?undefined:b.style.marginBottom+'px',
     };
     Object.assign(style,{...classStyle(b),...Object.fromEntries(Object.entries(style).filter(([,value])=>value!==undefined))});
+    if(b.type==='form')return <form className="builder-element-form" style={style} onSubmit={e=>e.preventDefault()}><strong>{b.text}</strong><label>Name<input placeholder="Your name" /></label><label>Email<input type="email" placeholder="you@example.com"/></label><label>Message<textarea placeholder="Your message"/></label><button type="submit">Submit</button></form>;
+    if(b.type==='search')return <div className="builder-element-search" style={style}><input type="search" placeholder={b.text||'Search'}/><button type="button">Search</button></div>;
+    if(b.type==='dropdown')return <details style={style}><summary>{b.text||'Menu'}</summary><div>Dropdown content</div></details>;
+    if(b.type==='tabs'){const labels=b.text.split('|').map(t=>t.trim()).filter(Boolean);return <div style={style}><div className="builder-element-tabs">{labels.map((t,i)=><button key={i} type="button">{t}</button>)}</div><p>Tab content preview</p></div>;}
+    if(b.type==='input')return <input style={style} placeholder={b.text||'Enter text'}/>;
+    if(b.type==='textarea')return <textarea style={style} placeholder={b.text||'Enter text'}/>;
+    if(b.type==='checkbox')return <label style={style}><input type="checkbox"/> {b.text}</label>;
+    if(b.type==='select')return <select style={style}>{b.text.split('|').map((t,i)=><option key={i}>{t.trim()}</option>)}</select>;
+    if(b.type==='divider')return <hr style={style}/>;
+    if(b.type==='spacer')return <div style={{height:40,...style}} aria-hidden="true"/>;
+    if(b.type==='video')return <div style={style} className="builder-container-placeholder">Video — add source in a later phase</div>;
+    if(b.type==='embed')return <div style={style} className="builder-container-placeholder">Embed — safe HTML support coming later</div>;
     if (b.type === 'container') return <div className="builder-container-placeholder"><LayoutTemplate size={17}/><span>{b.layout||'column'} layout</span></div>;
     if (b.type === 'heading') return <h1 style={style}>{b.text}</h1>;
     if (b.type === 'paragraph') return <p style={style}>{b.text}</p>;
