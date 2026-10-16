@@ -34,3 +34,9 @@ Do not run `wrangler deploy` until the runtime adapter, secrets, database, uploa
 
 ## Scope separation
 This document prepares **deployment of the CMS application itself**. Publishing websites created inside the CMS is a separate feature requiring versioned site builds and domain routing.
+
+## Added environment preflight
+Run `npm run cloudflare:env-check` after setting the three required environment variables. It checks presence and basic formats without logging secret values. It does **not** verify database connectivity, Prisma compatibility, Worker bindings, storage, or readiness to deploy. Do not commit credentials.
+
+## Compatibility concern
+The current `lib/prisma.ts` constructs a normal Prisma Client with no Cloudflare-specific adapter or Hyperdrive integration. Deploying it unchanged to Workers is not supported by the evidence available. Validate a compatible Prisma driver/adapter and database connection before deployment.
