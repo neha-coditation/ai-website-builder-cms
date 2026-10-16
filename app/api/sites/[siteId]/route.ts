@@ -52,6 +52,21 @@ export async function PATCH(request: Request, { params }: Context) {
   const { siteId } = await params;
   const parsed = schema.safeParse(await request.json().catch(()=>null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const redirects=parsed.data.siteConfig?.seo.redirects||[];
+  const destinations=new Map<string,string>();
+  for(const rule of redirects){
+    if(destinations.has(rule.from))return NextResponse.json({error:'Duplicate redirect source: '+rule.from},{status:400});
+    destinations.set(rule.from,rule.to);
+  }
+  for(const start of destinations.keys()){
+    const visited=new Set<string>();
+    let current=start;
+    while(destinations.has(current)){
+      if(visited.has(current))return NextResponse.json({error:'Redirect loop detected starting at '+start},{status:400});
+      visited.add(current);
+      current=destinations.get(current)!;
+    }
+  }
   const exists = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, globalDesign: true } });
   if (!exists) return NextResponse.json({ error: 'Website not found' }, { status: 404 });
   return NextResponse.json(await prisma.site.update({ where: { id: siteId }, data: { ...parsed.data, siteConfig:parsed.data.siteConfig as Prisma.InputJsonValue || undefined, globalDesign: { ...(exists.globalDesign && typeof exists.globalDesign==='object' && !Array.isArray(exists.globalDesign) ? exists.globalDesign as Record<string,unknown> : {}), ...parsed.data.globalDesign } as Prisma.InputJsonValue } }));
