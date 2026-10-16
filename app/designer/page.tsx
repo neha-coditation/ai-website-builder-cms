@@ -36,31 +36,44 @@ function Workspace() {
   const [dragging, setDragging] = useState(false);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const storageKey = 'studio-cms-designer-' + (siteId || 'local');
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      setLoaded(false);
+      setError('');
       let projectName = 'Untitled website';
+      let value: Site | null = null;
       if (siteId) {
         try {
-          const res = await fetch('/api/sites', { cache: 'no-store' });
-          if (res.ok) {
-            const sites: DbSite[] = await res.json();
-            const match = sites.find(s => s.id === siteId);
-            if (match) projectName = match.name;
-            else setError('This project could not be found. Return to the dashboard.');
-          } else setError('Unable to load project details.');
-        } catch { setError('Unable to load project details.'); }
-      }
-      let value = starter(projectName);
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) {
-          const parsed = JSON.parse(raw) as Site;
-          if (parsed && Array.isArray(parsed.blocks)) value = { ...parsed, name: projectName };
+          const res = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/home', { cache: 'no-store' });
+          if (!res.ok) throw new Error(res.status === 404 ? 'Project not found.' : 'Unable to load project from database.');
+          const data: { site: DbSite; page: { content: unknown } | null } = await res.json();
+          projectName = data.site.name;
+          const content = data.page?.content;
+          if (content && typeof content === 'object' && !Array.isArray(content) && 'blocks' in content) {
+            const blocks = (content as { blocks: unknown }).blocks;
+            if (Array.isArray(blocks)) value = { name: projectName, blocks: blocks as Block[] };
+          }
+        } catch (cause) {
+          if (!cancelled) setError(cause instanceof Error ? cause.message : 'Unable to load project.');
+          if (!cancelled) setLoaded(true);
+          return;
         }
-      } catch { /* Start from the template if browser storage is invalid. */ }
+      }
+      if (!value) {
+        value = starter(projectName);
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw) as Site;
+            if (parsed && Array.isArray(parsed.blocks)) value = { ...parsed, name: projectName };
+          }
+        } catch { /* Invalid browser draft: use starter. */ }
+      }
       if (!cancelled) { setSite(value); setSelected(value.blocks[0]?.id || null); setLoaded(true); }
     }
     void load();
@@ -140,9 +153,25 @@ function Workspace() {
     setSite(s => ({ ...s, blocks: s.blocks.filter(b => b.id !== selected) }));
     setSelected(null);
   }
-  function save() {
-    try { localStorage.setItem(storageKey, JSON.stringify(site)); setSaved(true); setError(''); window.setTimeout(() => setSaved(false), 1600); }
-    catch { setError('Could not save to this browser. Check available storage.'); }
+
+  async function save() {
+    if (saving || !loaded) return;
+    setSaving(true);
+    setError('');
+    try {
+      if (siteId) {
+        const response = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/home', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(site),
+        });
+        if (!response.ok) throw new Error('Could not save page to PostgreSQL (' + response.status + ').');
+      }
+      localStorage.setItem(storageKey, JSON.stringify(site));
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1600);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save changes.'); }
+    finally { setSaving(false); }
   }
   function renderBlock(b: Block) {
     const style: React.CSSProperties = {
@@ -171,7 +200,7 @@ function Workspace() {
         <div className="builder-toolbar-actions">
           <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
           <button className={preview?'builder-action active':'builder-action'} onClick={()=>setPreview(v=>!v)}><Eye size={17}/><span>{preview?'Exit preview':'Preview'}</span></button>
-          <button className="primary" onClick={save} disabled={!loaded}><Save size={16}/>{saved?'Saved':'Save'}</button>
+          <button className="primary" onClick={()=>void save()} disabled={!loaded||saving}><Save size={16}/>{saving?'Saving…':saved?'Saved':'Save'}</button>
         </div>
       </header>
       {error && <div className="builder-error" role="alert">{error}</div>}
