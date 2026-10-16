@@ -24,7 +24,7 @@ type Context = { params: Promise<{ siteId: string }> };
 
 export async function GET(_request: Request, { params }: Context) {
   const { siteId } = await params;
-  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true } });
+  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, globalDesign: true } });
   if (!site) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
   const pages = await prisma.page.findMany({ where: { siteId }, select: { id: true, slug: true, title: true, content: true, updatedAt: true }, orderBy: { createdAt: 'asc' } });
   return NextResponse.json({ site, pages });
