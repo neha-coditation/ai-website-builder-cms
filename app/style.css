@@ -173,3 +173,6 @@
 .builder-element-grid button:hover{border-color:#6485d9;background:#202d46}
 
 .builder-component-link{display:flex;flex-direction:column;gap:7px;padding:12px;margin-bottom:12px;border:1px solid #3d5480;border-radius:8px;background:#17253e}.builder-component-link span{font-size:12px;color:#c6d7f5}.builder-component-link button{align-self:flex-start;padding:7px 10px;border:1px solid #5b76ab;border-radius:6px}
+
+/* Phase 35: interactive tab controls */
+.builder-element-tabs{display:flex;flex-wrap:wrap;gap:5px;border-bottom:1px solid #47556d}.builder-element-tabs button{padding:10px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;cursor:pointer}.builder-element-tabs button.active,.builder-element-tabs button[aria-selected="true"]{border-bottom-color:#3064fe;font-weight:650}.builder-tab-panel{padding:16px 8px;min-height:72px;white-space:pre-wrap}.builder-tab-editor-label{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:12px}.builder-tab-editor-label textarea{width:100%;min-height:76px}
