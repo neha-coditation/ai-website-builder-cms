@@ -1,0 +1,36 @@
+name: Studio CMS quality checks
+on:
+  push:
+    branches: ['phase-*', main]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/studio_cms?schema=public
+      STUDIO_ADMIN_PASSWORD: ci-only-placeholder
+      STUDIO_SESSION_SECRET: ci-only-secret-with-at-least-thirty-two-characters
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies (allow fallback)
+        run: |
+          set -e
+          # Prefer a clean, deterministic install with `npm ci`.
+          # If the lockfile is out of sync (causing `npm ci` to fail), fall back to `npm install`
+          # as a temporary measure so CI continues to run while the lockfile is fixed.
+          if npm ci; then
+            echo "npm ci succeeded"
+          else
+            echo "npm ci failed — falling back to npm install"
+            npm install
+          fi
+      - run: npx prisma validate
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run build
