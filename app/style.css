@@ -126,3 +126,11 @@
 .builder-site-body{height:auto;min-height:520px}
 .builder-asset-modal{overscroll-behavior:contain}
 @media(max-width:800px){.builder-workspace{overflow:auto!important}.builder-stage{min-height:0!important}}
+
+
+/* Phase 27: nested, collapsible layer tree */
+.builder-layer-expand{flex:0 0 20px!important;width:20px!important;min-width:20px!important;display:flex!important;align-items:center;justify-content:center;padding:3px!important;color:#91a6ca;border:0;background:transparent}
+.builder-layer-expand:disabled{opacity:.3;cursor:default}
+.builder-layer-spacer{display:block;width:13px;height:13px}
+.builder-layer{display:flex;align-items:center;gap:2px}
+.builder-layer>button:not(.builder-layer-expand){min-width:0}
