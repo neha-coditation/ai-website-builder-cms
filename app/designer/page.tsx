@@ -7,6 +7,8 @@ import { FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, Undo2, Redo
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list' | 'container';
 type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; htmlId?:string; classNames?:string; alt?:string; href?:string; parentId?:string; layout?:'column'|'row'|'grid';gap?:number;columns?:number; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right'; width?: 'auto'|'full'|'half'; maxWidth?: number; marginTop?: number; marginBottom?: number } };
+type ClassRule={color?:string;background?:string;fontSize?:number;padding?:number;radius?:number};
+type ClassRules=Record<string,ClassRule>;
 type Seo = { title: string; description: string; noindex: boolean; ogImage: string };
 type Site = { name: string; blocks: Block[]; seo?: Seo };
 type GlobalDesign = { primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string };
@@ -67,6 +69,9 @@ function Workspace() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pages, setPages] = useState<ProjectPage[]>([]);
+  const [classRules,setClassRules]=useState<ClassRules>({});
+  const [classNameDraft,setClassNameDraft]=useState('');
+  const [classSaving,setClassSaving]=useState(false);
   const [assets,setAssets]=useState<Asset[]>([]);
   const [assetName,setAssetName]=useState('');
   const [assetUrl,setAssetUrl]=useState('');
@@ -214,6 +219,45 @@ function Workspace() {
     }
     return ()=>{cancelled=true;};
   },[site.blocks,siteId]);
+  useEffect(()=>{
+    if(!siteId)return;
+    let active=true;
+    fetch('/api/projects/'+encodeURIComponent(siteId)+'/classes',{cache:'no-store'})
+      .then(r=>{if(!r.ok)throw Error('Could not load classes');return r.json()})
+      .then(data=>{if(active)setClassRules(data)})
+      .catch(()=>{if(active)setError('Could not load reusable classes.')});
+    return ()=>{active=false};
+  },[siteId]);
+  async function saveClasses(next:ClassRules){
+    if(!siteId)return;
+    setClassSaving(true);
+    try{
+      const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/classes',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
+      if(!response.ok)throw Error('Unable to save classes');
+      setClassRules(next);
+    }catch(cause){setError(cause instanceof Error?cause.message:'Unable to save classes');}
+    finally{setClassSaving(false);}
+  }
+  function addClass(){
+    const name=classNameDraft.trim();
+    if(!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(name)||classRules[name]){setError('Enter a unique CSS class name (letters, numbers, _ and -).');return;}
+    void saveClasses({...classRules,[name]:{}});
+    setClassNameDraft('');
+    if(current)updateBlock({classNames:[...(current.classNames||'').split(/\s+/).filter(Boolean),name].join(' ')});
+  }
+  function updateClass(name:string,patch:ClassRule){void saveClasses({...classRules,[name]:{...classRules[name],...patch}});}
+  function classStyle(block:Block):React.CSSProperties{
+    const result:React.CSSProperties={};
+    for(const name of (block.classNames||'').split(/\s+/).filter(Boolean)){
+      const rule=classRules[name];if(!rule)continue;
+      if(rule.color)result.color=rule.color;
+      if(rule.background)result.backgroundColor=rule.background;
+      if(rule.fontSize!==undefined)result.fontSize=rule.fontSize+'px';
+      if(rule.padding!==undefined)result.padding=rule.padding+'px';
+      if(rule.radius!==undefined)result.borderRadius=rule.radius+'px';
+    }
+    return result;
+  }
   async function refreshAssets(){
     if(!siteId)return;
     try{const response=await fetch('/api/assets?siteId='+encodeURIComponent(siteId),{cache:'no-store'});if(!response.ok)throw Error('Could not load assets');setAssets(await response.json());}
@@ -400,6 +444,7 @@ function Workspace() {
       marginTop: b.style?.marginTop===undefined?undefined:b.style.marginTop+'px',
       marginBottom: b.style?.marginBottom===undefined?undefined:b.style.marginBottom+'px',
     };
+    Object.assign(style,{...classStyle(b),...Object.fromEntries(Object.entries(style).filter(([,value])=>value!==undefined))});
     if (b.type === 'container') return <div className="builder-container-placeholder"><LayoutTemplate size={17}/><span>{b.layout||'column'} layout</span></div>;
     if (b.type === 'heading') return <h1 style={style}>{b.text}</h1>;
     if (b.type === 'paragraph') return <p style={style}>{b.text}</p>;
@@ -458,7 +503,7 @@ function Workspace() {
         </div></div>
         {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button><button className={rightTab==='seo'?'active':''} onClick={()=>setRightTab('seo')}>SEO</button></div>
           {rightTab==='seo' ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page SEO</strong></div><label htmlFor="seo-title">Search title</label><input id="seo-title" maxLength={70} value={site.seo?.title||''} onChange={e=>updateSeo({title:e.target.value})}/><label htmlFor="seo-description">Meta description</label><textarea id="seo-description" rows={5} maxLength={320} value={site.seo?.description||''} onChange={e=>updateSeo({description:e.target.value})}/><label htmlFor="seo-image">Social image URL</label><input id="seo-image" type="url" value={site.seo?.ogImage||''} onChange={e=>updateSeo({ogImage:e.target.value})}/><label className="builder-seo-toggle"><input type="checkbox" checked={site.seo?.noindex||false} onChange={e=>updateSeo({noindex:e.target.checked})}/> Noindex</label><p className="builder-hint">SEO values are saved with the page. Public metadata rendering is not implemented yet.</p></div> : current ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>{current.type.charAt(0).toUpperCase()+current.type.slice(1)}</strong><button onClick={remove} className="builder-icon-danger" title="Delete element" aria-label="Delete element"><Trash2 size={17}/></button></div>
-            <div className="builder-technical-panel"><div className="builder-layout-heading">Element attributes</div><label htmlFor="builder-html-id">HTML ID</label><input id="builder-html-id" value={current.htmlId||''} placeholder="hero-title" onChange={e=>updateBlock({htmlId:e.target.value})}/><label htmlFor="builder-css-class">CSS class names</label><input id="builder-css-class" value={current.classNames||''} placeholder="hero-heading text-large" onChange={e=>updateBlock({classNames:e.target.value})}/>{current.type==='image'&&<><label htmlFor="builder-alt">Image alt text</label><input id="builder-alt" value={current.alt||''} onChange={e=>updateBlock({alt:e.target.value})}/><button onClick={()=>setLeftTab('assets')}>Open asset library →</button></>}{current.type==='button'&&<><label htmlFor="builder-href">Button link</label><input id="builder-href" value={current.href||''} placeholder="/contact or https://example.com" onChange={e=>updateBlock({href:e.target.value})}/></>}<p className="builder-hint">IDs must start with a letter and be unique on each page. Classes use letters, numbers, underscores and hyphens.</p></div>
+            <div className="builder-class-manager"><div className="builder-layout-heading">Reusable classes</div><div className="builder-class-add"><input aria-label="New class name" placeholder="e.g. card-title" value={classNameDraft} onChange={e=>setClassNameDraft(e.target.value)}/><button disabled={classSaving||!siteId} onClick={addClass}>Create</button></div>{Object.entries(classRules).map(([name,rule])=><div className="builder-class-rule" key={name}><div><strong>.{name}</strong><button disabled={classSaving} onClick={()=>{if(!current)return;const names=new Set((current.classNames||'').split(/\s+/).filter(Boolean));if(names.has(name))names.delete(name);else names.add(name);updateBlock({classNames:[...names].join(' ')});}}>{(current.classNames||'').split(/\s+/).includes(name)?'Remove':'Apply'}</button></div><label>Text color</label><input type="color" value={rule.color||'#131827'} onChange={e=>updateClass(name,{color:e.target.value})}/><label>Background</label><input type="color" value={rule.background||'#ffffff'} onChange={e=>updateClass(name,{background:e.target.value})}/><label>Font size (px)</label><input type="number" min="8" max="200" value={rule.fontSize??16} onChange={e=>updateClass(name,{fontSize:Number(e.target.value)})}/><label>Padding (px)</label><input type="number" min="0" max="300" value={rule.padding??0} onChange={e=>updateClass(name,{padding:Number(e.target.value)})}/><label>Radius (px)</label><input type="number" min="0" max="200" value={rule.radius??0} onChange={e=>updateClass(name,{radius:Number(e.target.value)})}/></div>)}</div><div className="builder-technical-panel"><div className="builder-layout-heading">Element attributes</div><label htmlFor="builder-html-id">HTML ID</label><input id="builder-html-id" value={current.htmlId||''} placeholder="hero-title" onChange={e=>updateBlock({htmlId:e.target.value})}/><label htmlFor="builder-css-class">CSS class names</label><input id="builder-css-class" value={current.classNames||''} placeholder="hero-heading text-large" onChange={e=>updateBlock({classNames:e.target.value})}/>{current.type==='image'&&<><label htmlFor="builder-alt">Image alt text</label><input id="builder-alt" value={current.alt||''} onChange={e=>updateBlock({alt:e.target.value})}/><button onClick={()=>setLeftTab('assets')}>Open asset library →</button></>}{current.type==='button'&&<><label htmlFor="builder-href">Button link</label><input id="builder-href" value={current.href||''} placeholder="/contact or https://example.com" onChange={e=>updateBlock({href:e.target.value})}/></>}<p className="builder-hint">IDs must start with a letter and be unique on each page. Classes use letters, numbers, underscores and hyphens.</p></div>
             {rightTab==='content' ? current.type==='cms-list' ? <><label htmlFor="builder-collection">CMS collection</label><select id="builder-collection" value={current.collectionId||''} onChange={e=>updateBlock({collectionId:e.target.value,displayField:''})}><option value="">Choose collection</option>{collections.map(collection=><option key={collection.id} value={collection.id}>{collection.name}</option>)}</select><label htmlFor="builder-display-field">Card heading field</label><select id="builder-display-field" value={current.displayField||''} onChange={e=>updateBlock({displayField:e.target.value})}><option value="">First field</option>{collections.find(collection=>collection.id===current.collectionId)?.fields?.map(field=><option key={field.name} value={field.name}>{field.name}</option>)}</select><p className="builder-hint">Only published entries are displayed. Manage collection content in CMS.</p><Link href={'/cms?siteId='+encodeURIComponent(siteId)}>Manage CMS →</Link></> : <><label htmlFor="builder-content">{current.type==='image'?'Image URL':'Text content'}</label><textarea id="builder-content" rows={current.type==='paragraph'?8:4} value={current.text} onChange={e=>updateBlock({text:e.target.value})}/><p className="builder-hint">Changes appear immediately on the canvas.</p></> :
             <><label htmlFor="builder-color">Text color</label><div className="builder-color-control"><input id="builder-color" type="color" value={current.style?.color||'#131827'} onChange={e=>updateStyle({color:e.target.value})}/><span>{current.style?.color||'Default'}</span></div>
               <label htmlFor="builder-bg">Background color</label><div className="builder-color-control"><input id="builder-bg" type="color" value={current.style?.background||'#ffffff'} onChange={e=>updateStyle({background:e.target.value})}/><span>{current.style?.background||'Default'}</span></div>
