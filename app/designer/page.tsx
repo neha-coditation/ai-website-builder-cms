@@ -1,15 +1,153 @@
 'use client';
-import {useEffect,useState} from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import {LayoutDashboard,PanelsTopLeft,Database,Settings,Plus,Save,Eye,Monitor,Smartphone,Trash2,ArrowLeft,Upload,Type,Image as ImageIcon} from 'lucide-react';
-type Block={id:string,type:'heading'|'paragraph'|'button'|'image',text:string};
-type Site={name:string,blocks:Block[]};
-const initial:Site={name:'My first website',blocks:[{id:'a',type:'heading',text:'Build something remarkable.'},{id:'b',type:'paragraph',text:'Your new website starts here. Click any element to edit it.'},{id:'c',type:'button',text:'Get in touch'}]};
-const makeId=()=>Math.random().toString(36).slice(2);
-export default function Home(){const [site,setSite]=useState<Site>(initial);const [tab,setTab]=useState('designer');const [selected,setSelected]=useState('a');const [mobile,setMobile]=useState(false);const [ready,setReady]=useState(false);const [saved,setSaved]=useState(false);
-useEffect(()=>{try{const v=localStorage.getItem('studio-cms-project');if(v)setSite(JSON.parse(v))}catch{}setReady(true)},[]);
-const save=()=>{localStorage.setItem('studio-cms-project',JSON.stringify(site));setSaved(true);setTimeout(()=>setSaved(false),1800)};
-const add=(type:Block['type'])=>{const b={id:makeId(),type,text:type==='heading'?'New heading':type==='paragraph'?'Add your text here':type==='button'?'Learn more':'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200'};setSite(s=>({...s,blocks:[...s.blocks,b]}));setSelected(b.id)};
-const update=(id:string,text:string)=>setSite(s=>({...s,blocks:s.blocks.map(b=>b.id===id?{...b,text}:b)}));
-const current=site.blocks.find(b=>b.id===selected);
-return <div className="shell"><aside className="sidebar"><div className="brand"><span className="brandicon">✦</span> Studio<span className="muted">CMS</span></div><Link href="/" className="designer-back">← All projects</Link><div className="section">WORKSPACE</div>{[['dashboard',LayoutDashboard,'Dashboard'],['designer',PanelsTopLeft,'Designer'],['cms',Database,'CMS Collections'],['settings',Settings,'Settings']].map(([key,Icon,label]:any)=><button key={key} className={'nav '+(tab===key?'active':'')} onClick={()=>key==='dashboard'?window.location.assign('/'):key==='cms'?window.location.assign('/cms'):setTab(key)}><Icon size={17}/>{label}</button>)}<div className="bottom">Local starter · v0.3</div></aside><main><header><div><span className="muted">Workspace / </span><input className="name" value={site.name} onChange={e=>setSite({...site,name:e.target.value})}/></div><div className="actions"><button onClick={()=>setMobile(!mobile)}>{mobile?<Monitor size={16}/>:<Smartphone size={16}/>} {mobile?'Desktop':'Mobile'}</button><button onClick={()=>setTab('preview')}><Eye size={16}/> Preview</button><button className="primary" onClick={save}><Save size={16}/>{saved?'Saved':'Save project'}</button></div></header>{tab==='dashboard'?<section className="dashboard"><h1>Welcome to Studio CMS</h1><p>Create, design, and manage your websites.</p><div className="project" onClick={()=>setTab('designer')}><PanelsTopLeft/><h3>{site.name}</h3><span>Open designer →</span></div><button className="primary" onClick={()=>{if(confirm('Start a blank project? This replaces unsaved work.')){setSite({name:'Untitled website',blocks:[]});setTab('designer')}}}><Plus size={16}/> New blank website</button></section>:tab==='cms'?<section className="dashboard"><h1>CMS Collections</h1><p>Manage collections, custom fields, draft and published entries in the database.</p><a className="primary" href="/cms" style={{display:'inline-flex',padding:'12px 18px',borderRadius:8,textDecoration:'none'}}>Open CMS editor →</a></section>:tab==='settings'?<section className="dashboard"><h1>Project settings</h1><p>Project data is currently stored in this browser using localStorage.</p><button onClick={()=>{const blob=new Blob([JSON.stringify(site,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='site.json';a.click();URL.revokeObjectURL(a.href)}}><Upload size={16}/> Export project JSON</button></section>:<div className={'workspace '+(tab==='preview'?'preview':'')} >{tab!=='preview'&&<div className="panel"><div className="paneltitle">ADD ELEMENTS</div>{(['heading','paragraph','button','image'] as const).map(t=><button className="add" key={t} onClick={()=>add(t)}><Plus size={14}/>{t}</button>)}<div className="paneltitle gap">LAYERS</div>{site.blocks.map((b,i)=><button className={'layer '+(selected===b.id?'selected':'')} key={b.id} onClick={()=>setSelected(b.id)}>{i+1}. {b.type}</button>)}</div>}<div className="canvaswrap"><div className={'canvas '+(mobile?'mobile':'')}><nav className="site-nav"><strong>{site.name}</strong><span>Home　 About　 Contact</span></nav><div className="sitebody">{site.blocks.map(b=><div key={b.id} className={'block '+(selected===b.id&&tab!=='preview'?'highlight':'')} onClick={()=>setSelected(b.id)}>{b.type==='heading'?<h1>{b.text}</h1>:b.type==='paragraph'?<p>{b.text}</p>:b.type==='button'?<button className="cta">{b.text}</button>:<img src={b.text} alt="Website content"/>}</div>)}</div><footer>© {new Date().getFullYear()} {site.name}</footer></div></div>{tab!=='preview'&&<div className="panel right"><div className="paneltitle">PROPERTIES</div>{current?<><label>Element type</label><div className="field muted">{current.type}</div><label>{current.type==='image'?'Image URL':'Content'}</label><textarea value={current.text} onChange={e=>update(current.id,e.target.value)} rows={6}/><button className="delete" onClick={()=>{setSite(s=>({...s,blocks:s.blocks.filter(b=>b.id!==selected)}));setSelected('')}}><Trash2 size={15}/> Remove element</button></>:<p className="muted">Select an element on the canvas.</p>}</div>}</div>}</main></div>}
+import { useSearchParams } from 'next/navigation';
+import { AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
+
+type BlockType = 'heading' | 'paragraph' | 'button' | 'image';
+type Block = { id: string; type: BlockType; text: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
+type Site = { name: string; blocks: Block[] };
+type DbSite = { id: string; name: string };
+const starter = (name: string): Site => ({ name, blocks: [
+  { id: 'hero-title', type: 'heading', text: 'Build something remarkable.', style: { fontSize: 54 } },
+  { id: 'hero-copy', type: 'paragraph', text: 'Create, customize and launch your next website.', style: { fontSize: 19 } },
+  { id: 'hero-button', type: 'button', text: 'Get started', style: { background: '#3064fe', color: '#ffffff', radius: 8 } },
+] });
+const makeId = () => Math.random().toString(36).slice(2);
+const palette: { type: BlockType; label: string; icon: typeof Type; description: string }[] = [
+  { type: 'heading', label: 'Heading', icon: Heading1, description: 'Titles and headings' },
+  { type: 'paragraph', label: 'Text', icon: AlignLeft, description: 'Body copy' },
+  { type: 'button', label: 'Button', icon: MousePointer2, description: 'Call to action' },
+  { type: 'image', label: 'Image', icon: ImageIcon, description: 'Visual content' },
+];
+const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '' };
+
+function Workspace() {
+  const search = useSearchParams();
+  const siteId = search.get('siteId') || '';
+  const [site, setSite] = useState<Site>(() => starter('Untitled website'));
+  const [selected, setSelected] = useState<string | null>('hero-title');
+  const [device, setDevice] = useState<'desktop'|'mobile'>('desktop');
+  const [leftTab, setLeftTab] = useState<'elements'|'layers'>('elements');
+  const [rightTab, setRightTab] = useState<'content'|'style'>('content');
+  const [preview, setPreview] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const storageKey = 'studio-cms-designer-' + (siteId || 'local');
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      let projectName = 'Untitled website';
+      if (siteId) {
+        try {
+          const res = await fetch('/api/sites', { cache: 'no-store' });
+          if (res.ok) {
+            const sites: DbSite[] = await res.json();
+            const match = sites.find(s => s.id === siteId);
+            if (match) projectName = match.name;
+            else setError('This project could not be found. Return to the dashboard.');
+          } else setError('Unable to load project details.');
+        } catch { setError('Unable to load project details.'); }
+      }
+      let value = starter(projectName);
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Site;
+          if (parsed && Array.isArray(parsed.blocks)) value = { ...parsed, name: projectName };
+        }
+      } catch { /* Start from the template if browser storage is invalid. */ }
+      if (!cancelled) { setSite(value); setSelected(value.blocks[0]?.id || null); setLoaded(true); }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [siteId, storageKey]);
+  const current = site.blocks.find(b => b.id === selected);
+  function add(type: BlockType) {
+    const block: Block = { id: makeId(), type, text: defaults[type], style: {} };
+    setSite(s => ({ ...s, blocks: [...s.blocks, block] }));
+    setSelected(block.id);
+    setLeftTab('layers');
+    setRightTab('content');
+    setPreview(false);
+  }
+  function updateBlock(patch: Partial<Block>) {
+    if (!selected) return;
+    setSite(s => ({ ...s, blocks: s.blocks.map(b => b.id === selected ? { ...b, ...patch } : b) }));
+  }
+  function updateStyle(patch: Partial<NonNullable<Block['style']>>) {
+    if (!current) return;
+    updateBlock({ style: { ...current.style, ...patch } });
+  }
+  function move(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= site.blocks.length) return;
+    setSite(s => { const blocks = [...s.blocks]; [blocks[index], blocks[target]] = [blocks[target], blocks[index]]; return { ...s, blocks }; });
+  }
+  function remove() {
+    if (!selected) return;
+    setSite(s => ({ ...s, blocks: s.blocks.filter(b => b.id !== selected) }));
+    setSelected(null);
+  }
+  function save() {
+    try { localStorage.setItem(storageKey, JSON.stringify(site)); setSaved(true); setError(''); window.setTimeout(() => setSaved(false), 1600); }
+    catch { setError('Could not save to this browser. Check available storage.'); }
+  }
+  function renderBlock(b: Block) {
+    const style: React.CSSProperties = {
+      color: b.style?.color,
+      backgroundColor: b.style?.background,
+      fontSize: b.style?.fontSize ? b.style.fontSize + 'px' : undefined,
+      padding: b.style?.padding === undefined ? undefined : b.style.padding + 'px',
+      borderRadius: b.style?.radius === undefined ? undefined : b.style.radius + 'px',
+      textAlign: b.style?.align,
+    };
+    if (b.type === 'heading') return <h1 style={style}>{b.text}</h1>;
+    if (b.type === 'paragraph') return <p style={style}>{b.text}</p>;
+    if (b.type === 'button') return <button type="button" className="cta" style={style}>{b.text}</button>;
+    return b.text ? <img style={style} src={b.text} alt="Website visual" /> : <div className="builder-image-placeholder" style={style}><ImageIcon size={28}/> Add an image URL in Properties</div>;
+  }
+  return <div className="builder">
+    <aside className="builder-rail">
+      <Link href="/" className="builder-brand" aria-label="Back to dashboard">✦</Link>
+      <Link href="/" title="All projects" aria-label="All projects"><ChevronLeft size={20}/></Link>
+      <button className={!preview ? 'is-active' : ''} title="Designer" aria-label="Designer" onClick={()=>setPreview(false)}><LayoutTemplate size={20}/></button>
+      <Link href={'/cms' + (siteId ? '?siteId='+encodeURIComponent(siteId) : '')} title="CMS collections" aria-label="CMS collections"><Database size={20}/></Link>
+    </aside>
+    <div className="builder-main">
+      <header className="builder-toolbar">
+        <div className="builder-project"><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">Designer</span></div>
+        <div className="builder-toolbar-actions">
+          <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
+          <button className={preview?'builder-action active':'builder-action'} onClick={()=>setPreview(v=>!v)}><Eye size={17}/><span>{preview?'Exit preview':'Preview'}</span></button>
+          <button className="primary" onClick={save} disabled={!loaded}><Save size={16}/>{saved?'Saved':'Save'}</button>
+        </div>
+      </header>
+      {error && <div className="builder-error" role="alert">{error}</div>}
+      <div className={'builder-workspace'+(preview?' is-preview':'')}>
+        {!preview && <aside className="builder-left">
+          <div className="builder-tabs"><button className={leftTab==='elements'?'active':''} onClick={()=>setLeftTab('elements')}><Plus size={16}/> Elements</button><button className={leftTab==='layers'?'active':''} onClick={()=>setLeftTab('layers')}><Layers size={16}/> Layers</button></div>
+          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Click an element to add it to your page.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
+        </aside>}
+        <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
+          <div className="builder-site-header"><strong>{site.name}</strong><span>Home　 About　 Contact</span></div>
+          <div className="builder-site-body">{site.blocks.map(b=><div key={b.id} className={'builder-block'+(selected===b.id&&!preview?' selected':'')} onClick={()=>{if(!preview){setSelected(b.id);setRightTab('content');}}}>{renderBlock(b)}</div>)}{site.blocks.length===0&&<div className="builder-empty-canvas">Add elements to start designing your page.</div>}</div>
+          <div className="builder-site-footer">© {new Date().getFullYear()} {site.name}</div>
+        </div></div>
+        {!preview && <aside className="builder-right"><div className="builder-tabs"><button className={rightTab==='content'?'active':''} onClick={()=>setRightTab('content')}><Type size={16}/> Content</button><button className={rightTab==='style'?'active':''} onClick={()=>setRightTab('style')}><Code2 size={16}/> Style</button></div>
+          {current ? <div className="builder-side-content"><div className="builder-panel-heading"><strong>{current.type.charAt(0).toUpperCase()+current.type.slice(1)}</strong><button onClick={remove} className="builder-icon-danger" title="Delete element" aria-label="Delete element"><Trash2 size={17}/></button></div>
+            {rightTab==='content' ? <><label htmlFor="builder-content">{current.type==='image'?'Image URL':'Text content'}</label><textarea id="builder-content" rows={current.type==='paragraph'?8:4} value={current.text} onChange={e=>updateBlock({text:e.target.value})}/><p className="builder-hint">Changes appear immediately on the canvas.</p></> :
+            <><label htmlFor="builder-color">Text color</label><div className="builder-color-control"><input id="builder-color" type="color" value={current.style?.color||'#131827'} onChange={e=>updateStyle({color:e.target.value})}/><span>{current.style?.color||'Default'}</span></div>
+              <label htmlFor="builder-bg">Background color</label><div className="builder-color-control"><input id="builder-bg" type="color" value={current.style?.background||'#ffffff'} onChange={e=>updateStyle({background:e.target.value})}/><span>{current.style?.background||'Default'}</span></div>
+              <label htmlFor="builder-font-size">Font size (px)</label><input id="builder-font-size" type="number" min="8" max="120" placeholder="Default" value={current.style?.fontSize??''} onChange={e=>updateStyle({fontSize:e.target.value?Number(e.target.value):undefined})}/>
+              <label htmlFor="builder-padding">Padding (px)</label><input id="builder-padding" type="number" min="0" max="160" placeholder="Default" value={current.style?.padding??''} onChange={e=>updateStyle({padding:e.target.value?Number(e.target.value):0})}/>
+              <label htmlFor="builder-radius">Corner radius (px)</label><input id="builder-radius" type="number" min="0" max="120" placeholder="Default" value={current.style?.radius??''} onChange={e=>updateStyle({radius:e.target.value?Number(e.target.value):0})}/>
+              <label htmlFor="builder-align">Text alignment</label><select id="builder-align" value={current.style?.align||'left'} onChange={e=>updateStyle({align:e.target.value as 'left'|'center'|'right'})}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></>}
+          </div> : <div className="builder-side-content builder-hint">Select an element on the canvas or in Layers to edit its content and styles.</div>}
+        </aside>}
+      </div>
+    </div>
+  </div>;
+}
+export default function DesignerPage(){return <Suspense fallback={<div className="builder">Loading designer…</div>}><Workspace/></Suspense>}
