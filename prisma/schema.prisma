@@ -18,6 +18,7 @@ model Site {
   siteConfig  Json           @default("{}")
   assets      SiteAsset[]
   components  SiteComponent[]
+  submissions FormSubmission[]
   pages       Page[]
   collections CmsCollection[]
   createdAt   DateTime        @default(now())
@@ -81,4 +82,17 @@ model SiteComponent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([siteId, createdAt])
+}
+
+model FormSubmission {
+  id String @id @default(cuid())
+  siteId String
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  formId String
+  pageSlug String
+  data Json
+  status String @default("new")
+  createdAt DateTime @default(now())
+  @@index([siteId, createdAt])
+  @@index([siteId, formId, createdAt])
 }
