@@ -42,3 +42,7 @@
 
 /* Phase 13 responsive element sizing */
 .builder-layout-heading{margin-top:22px;padding-top:16px;border-top:1px solid rgba(130,150,185,.25);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a5b7d8}.builder-site-body .builder-block{box-sizing:border-box;min-width:0}.builder-site-body .builder-block img{max-width:100%;height:auto}.builder-canvas.mobile .builder-site-body .builder-block{width:100%!important;max-width:100%!important}
+
+
+/* Phase 14: nested layout containers */
+.builder-layout-container{width:100%;min-height:100px;box-sizing:border-box;border:1px dashed #b4c4dc;align-items:stretch}.builder-layout-container>.builder-block{min-width:0;width:auto;max-width:100%;box-sizing:border-box;cursor:pointer}.builder-layout-container>.builder-block.selected{outline:2px solid #3064fe;outline-offset:2px}.builder-container-placeholder{display:flex;align-items:center;justify-content:center;gap:8px;min-height:80px;color:#72819b;font-size:13px;text-align:center}.builder-canvas.mobile .builder-layout-container{display:flex!important;flex-direction:column!important;grid-template-columns:none!important}.builder-layout-container img{max-width:100%;height:auto}

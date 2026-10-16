@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
 
-type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list';
-type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right'; width?: 'auto'|'full'|'half'; maxWidth?: number; marginTop?: number; marginBottom?: number } };
+type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list' | 'container';
+type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; parentId?:string; layout?:'column'|'row'|'grid';gap?:number;columns?:number; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right'; width?: 'auto'|'full'|'half'; maxWidth?: number; marginTop?: number; marginBottom?: number } };
 type Seo = { title: string; description: string; noindex: boolean; ogImage: string };
 type Site = { name: string; blocks: Block[]; seo?: Seo };
 type GlobalDesign = { primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string };
@@ -26,8 +26,9 @@ const palette: { type: BlockType; label: string; icon: typeof Type; description:
   { type: 'button', label: 'Button', icon: MousePointer2, description: 'Call to action' },
   { type: 'image', label: 'Image', icon: ImageIcon, description: 'Visual content' },
   { type: 'cms-list', label: 'CMS List', icon: Database, description: 'Collection-driven cards' },
+  { type: 'container', label: 'Container', icon: LayoutTemplate, description: 'Nested flex or grid layout' },
 ];
-const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '', 'cms-list': 'Collection list' };
+const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '', 'cms-list': 'Collection list', container:'Container' };
 
 type SectionPreset = { id:string; name:string; description:string; blocks: Omit<Block,'id'>[] };
 const sectionPresets: SectionPreset[] = [
@@ -263,9 +264,13 @@ function Workspace() {
     if (target < 0 || target >= site.blocks.length) return;
     setSite(s => { const blocks = [...s.blocks]; [blocks[index], blocks[target]] = [blocks[target], blocks[index]]; return { ...s, blocks }; });
   }
+  function moveIntoContainer(childId:string,containerId:string) {
+    if(childId===containerId)return;
+    setSite(previous=>({...previous,blocks:previous.blocks.map(block=>block.id===childId?{...block,parentId:containerId}:block)}));
+  }
   function remove() {
     if (!selected) return;
-    setSite(s => ({ ...s, blocks: s.blocks.filter(b => b.id !== selected) }));
+    setSite(s => ({ ...s, blocks: s.blocks.filter(b => b.id !== selected).map(b=>b.parentId===selected?{...b,parentId:undefined}:b) }));
     setSelected(null);
   }
 
@@ -302,6 +307,7 @@ function Workspace() {
       marginTop: b.style?.marginTop===undefined?undefined:b.style.marginTop+'px',
       marginBottom: b.style?.marginBottom===undefined?undefined:b.style.marginBottom+'px',
     };
+    if (b.type === 'container') return <div className="builder-container-placeholder"><LayoutTemplate size={17}/><span>{b.layout||'column'} layout</span></div>;
     if (b.type === 'heading') return <h1 style={style}>{b.text}</h1>;
     if (b.type === 'paragraph') return <p style={style}>{b.text}</p>;
     if (b.type === 'button') return <button type="button" className="cta" style={style}>{b.text}</button>;
@@ -338,13 +344,18 @@ function Workspace() {
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
           <div className="builder-site-header" style={{backgroundColor:globalDesign.headerBackground||undefined,color:globalDesign.headerTextColor||undefined}}><strong>{globalDesign.logoText||site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>
           <div className={'builder-site-body'+(dragging?' is-dragging':'')} style={{backgroundColor:globalDesign.pageBackground||undefined,color:globalDesign.bodyTextColor||undefined,fontFamily:globalDesign.fontFamily||undefined}} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
-            {site.blocks.map((b,index)=><div key={b.id}>
-              {!preview && dropZone(index)}
+            {site.blocks.filter(b=>!b.parentId || !site.blocks.some(parent=>parent.id===b.parentId && parent.type==='container')).map((b,index)=><div key={b.id}>
+              {!preview && dropZone(site.blocks.indexOf(b))}
               <div className={'builder-block'+(selected===b.id&&!preview?' selected':'')} style={{width:b.style?.width==='full'?'100%':b.style?.width==='half'?'50%':undefined,maxWidth:'100%'}} draggable={!preview}
-                onDragStart={event=>startDrag(event,{type:'move',id:b.id})} onDragEnd={endDrag}
-                onDragOver={event=>{if(preview)return;const rect=event.currentTarget.getBoundingClientRect();acceptDrag(event,index+(event.clientY>rect.top+rect.height/2?1:0));}}
-                onDrop={event=>{if(preview)return;const rect=event.currentTarget.getBoundingClientRect();dropBlock(event,index+(event.clientY>rect.top+rect.height/2?1:0));}}
-                onClick={()=>{if(!preview){setSelected(b.id);setRightTab('content');}}}>{renderBlock(b)}</div>
+                onDragStart={event=>{event.stopPropagation();startDrag(event,{type:'move',id:b.id});}} onDragEnd={endDrag}
+                onDragOver={event=>{if(preview)return;event.stopPropagation();if(b.type==='container'&&event.dataTransfer.types.includes(dragMime)){event.preventDefault();setDropIndex(-1);return;}const rect=event.currentTarget.getBoundingClientRect();acceptDrag(event,site.blocks.indexOf(b)+(event.clientY>rect.top+rect.height/2?1:0));}}
+                onDrop={event=>{if(preview)return;event.stopPropagation();if(b.type==='container'){event.preventDefault();const raw=event.dataTransfer.getData(dragMime);try{const payload=JSON.parse(raw);if(payload.type==='move'){moveIntoContainer(payload.id,b.id);}else if(payload.type==='new'&&payload.blockType!=='container'&&palette.some(item=>item.type===payload.blockType)){const child:Block={id:makeId(),type:payload.blockType,text:defaults[payload.blockType],parentId:b.id,style:{}};setSite(previous=>({...previous,blocks:[...previous.blocks,child]}));setSelected(child.id);}}catch{}endDrag();return;}const rect=event.currentTarget.getBoundingClientRect();dropBlock(event,site.blocks.indexOf(b)+(event.clientY>rect.top+rect.height/2?1:0));}}
+                onClick={event=>{event.stopPropagation();if(!preview){setSelected(b.id);setRightTab('content');}}}>
+                {b.type==='container'?<div className="builder-layout-container" style={{display:b.layout==='grid'?'grid':'flex',flexDirection:b.layout==='row'?'row':'column',gridTemplateColumns:b.layout==='grid'?`repeat(${b.columns||2}, minmax(0,1fr))`:undefined,gap:(b.gap??16)+'px',padding:(b.style?.padding??20)+'px',background:b.style?.background||'#f5f7fb',borderRadius:(b.style?.radius??12)+'px'}}>
+                  {site.blocks.filter(child=>child.parentId===b.id).map(child=><div key={child.id} className={'builder-block builder-nested-block'+(selected===child.id?' selected':'')} onClick={event=>{event.stopPropagation();if(!preview){setSelected(child.id);setRightTab('content');}}}>{renderBlock(child)}</div>)}
+                  {!site.blocks.some(child=>child.parentId===b.id)&&<div className="builder-container-placeholder">Drop an element here or assign it from Layers</div>}
+                </div>:renderBlock(b)}
+              </div>
             </div>)}
             {!preview && dropZone(site.blocks.length)}
             {site.blocks.length===0&&<div className="builder-empty-canvas">Drag elements here to start designing your page.</div>}
@@ -359,7 +370,7 @@ function Workspace() {
               <label htmlFor="builder-font-size">Font size (px)</label><input id="builder-font-size" type="number" min="8" max="120" placeholder="Default" value={current.style?.fontSize??''} onChange={e=>updateStyle({fontSize:e.target.value?Number(e.target.value):undefined})}/>
               <label htmlFor="builder-padding">Padding (px)</label><input id="builder-padding" type="number" min="0" max="160" placeholder="Default" value={current.style?.padding??''} onChange={e=>updateStyle({padding:e.target.value?Number(e.target.value):0})}/>
               <label htmlFor="builder-radius">Corner radius (px)</label><input id="builder-radius" type="number" min="0" max="120" placeholder="Default" value={current.style?.radius??''} onChange={e=>updateStyle({radius:e.target.value?Number(e.target.value):0})}/>
-              <div className="builder-layout-heading">Layout & spacing</div><label htmlFor="builder-width">Element width</label><select id="builder-width" value={current.style?.width||'auto'} onChange={e=>updateStyle({width:e.target.value as 'auto'|'full'|'half'})}><option value="auto">Auto</option><option value="full">Full width</option><option value="half">Half width</option></select><label htmlFor="builder-max-width">Max width (px)</label><input id="builder-max-width" type="number" min="100" max="2000" placeholder="None" value={current.style?.maxWidth??''} onChange={e=>updateStyle({maxWidth:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-margin-top">Space above (px)</label><input id="builder-margin-top" type="number" min="0" max="500" value={current.style?.marginTop??''} onChange={e=>updateStyle({marginTop:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-margin-bottom">Space below (px)</label><input id="builder-margin-bottom" type="number" min="0" max="500" value={current.style?.marginBottom??''} onChange={e=>updateStyle({marginBottom:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-align">Text alignment</label><select id="builder-align" value={current.style?.align||'left'} onChange={e=>updateStyle({align:e.target.value as 'left'|'center'|'right'})}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></>}
+              <div className="builder-layout-heading">Layout & spacing</div><label htmlFor="builder-width">Element width</label><select id="builder-width" value={current.style?.width||'auto'} onChange={e=>updateStyle({width:e.target.value as 'auto'|'full'|'half'})}><option value="auto">Auto</option><option value="full">Full width</option><option value="half">Half width</option></select><label htmlFor="builder-max-width">Max width (px)</label><input id="builder-max-width" type="number" min="100" max="2000" placeholder="None" value={current.style?.maxWidth??''} onChange={e=>updateStyle({maxWidth:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-margin-top">Space above (px)</label><input id="builder-margin-top" type="number" min="0" max="500" value={current.style?.marginTop??''} onChange={e=>updateStyle({marginTop:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-margin-bottom">Space below (px)</label><input id="builder-margin-bottom" type="number" min="0" max="500" value={current.style?.marginBottom??''} onChange={e=>updateStyle({marginBottom:e.target.value?Number(e.target.value):undefined})}/>{current.type==='container'&&<><label htmlFor="builder-container-layout">Container layout</label><select id="builder-container-layout" value={current.layout||'column'} onChange={e=>updateBlock({layout:e.target.value as 'column'|'row'|'grid'})}><option value="column">Column</option><option value="row">Row</option><option value="grid">Grid</option></select><label htmlFor="builder-container-gap">Gap (px)</label><input id="builder-container-gap" type="number" min="0" max="200" value={current.gap??16} onChange={e=>updateBlock({gap:Number(e.target.value)})}/>{current.layout==='grid'&&<><label htmlFor="builder-container-columns">Grid columns</label><input id="builder-container-columns" type="number" min="1" max="6" value={current.columns??2} onChange={e=>updateBlock({columns:Number(e.target.value)})}/></>}</>}<label htmlFor="builder-align">Text alignment</label><select id="builder-align" value={current.style?.align||'left'} onChange={e=>updateStyle({align:e.target.value as 'left'|'center'|'right'})}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></>}
           </div> : <div className="builder-side-content builder-hint">Select an element on the canvas or in Layers to edit its content and styles.</div>}
         </aside>}
       </div>
