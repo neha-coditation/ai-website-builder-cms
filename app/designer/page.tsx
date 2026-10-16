@@ -29,6 +29,26 @@ const palette: { type: BlockType; label: string; icon: typeof Type; description:
 ];
 const defaults: Record<BlockType, string> = { heading: 'New heading', paragraph: 'Write your paragraph here.', button: 'Click here', image: '', 'cms-list': 'Collection list' };
 
+type SectionPreset = { id:string; name:string; description:string; blocks: Omit<Block,'id'>[] };
+const sectionPresets: SectionPreset[] = [
+  {id:'hero',name:'Hero',description:'Headline, introduction and call to action',blocks:[
+    {type:'heading',text:'Your next big idea starts here',style:{fontSize:52,align:'center',padding:16}},
+    {type:'paragraph',text:'A clear message that helps visitors understand what you offer.',style:{fontSize:19,align:'center',padding:12}},
+    {type:'button',text:'Get started',style:{background:'#3064fe',color:'#ffffff',radius:10,padding:16,align:'center'}}]},
+  {id:'features',name:'Features',description:'Section title with three benefit statements',blocks:[
+    {type:'heading',text:'Why choose us',style:{fontSize:38,padding:16}},
+    {type:'paragraph',text:'01 — Built for your needs. Explain the first benefit.',style:{fontSize:18,padding:12}},
+    {type:'paragraph',text:'02 — Simple to use. Explain the second benefit.',style:{fontSize:18,padding:12}},
+    {type:'paragraph',text:'03 — Ready to grow. Explain the third benefit.',style:{fontSize:18,padding:12}}]},
+  {id:'cta',name:'Call to action',description:'Conversion-focused closing section',blocks:[
+    {type:'heading',text:'Ready to work together?',style:{fontSize:36,align:'center',padding:18}},
+    {type:'paragraph',text:'Tell us what you are building and we will help you get started.',style:{align:'center',padding:10}},
+    {type:'button',text:'Contact us',style:{background:'#3064fe',color:'#ffffff',radius:8,padding:14}}]},
+  {id:'content',name:'Editorial',description:'Article heading, image and body copy',blocks:[
+    {type:'heading',text:'A story worth sharing',style:{fontSize:42,padding:12}},
+    {type:'image',text:'',style:{radius:12,padding:8}},
+    {type:'paragraph',text:'Write your story here. Add context, supporting details, and a clear takeaway.',style:{fontSize:17,padding:12}}]},
+];
 function Workspace() {
   const search = useSearchParams();
   const siteId = search.get('siteId') || '';
@@ -174,6 +194,16 @@ function Workspace() {
     setPreview(false);
   }
 
+  function insertSection(preset: SectionPreset) {
+    const blocks: Block[] = preset.blocks.map(block=>({...block,id:makeId(),style:{...block.style}}));
+    setSite(previous=>({...previous,blocks:[...previous.blocks,...blocks]}));
+    setSelected(blocks[0]?.id||null);
+    setLeftTab('layers');
+    setRightTab('content');
+    setPreview(false);
+    setSaved(false);
+  }
+
   const dragMime = 'application/x-studio-cms-block';
   function startDrag(event: DragEvent<HTMLElement>, payload: { type: 'new'; blockType: BlockType } | { type: 'move'; id: string }) {
     event.dataTransfer.effectAllowed = payload.type === 'new' ? 'copy' : 'move';
@@ -300,7 +330,7 @@ function Workspace() {
       <div className={'builder-workspace'+(preview?' is-preview':'')}>
         {!preview && <aside className="builder-left">
           <div className="builder-pages"><div className="builder-panel-heading"><strong><Files size={15}/> Pages</strong><span>{pages.length}</span></div><div className="builder-page-list">{pages.map(page=><button key={page.id} className={pageId===page.id?'active':''} onClick={()=>openPage(page)}>{page.title}<small>/{page.slug}</small></button>)}</div><div className="builder-new-page"><input aria-label="New page name" placeholder="New page name" value={newPageName} onChange={event=>setNewPageName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void createPage();}}/><button disabled={!newPageName.trim()||creatingPage} onClick={()=>void createPage()} title="Create page"><FilePlus2 size={16}/></button></div>{pages.find(page=>page.id===pageId)?.slug!=='home'&&pageId&&<button className="builder-remove-page" onClick={()=>void deletePage()}><Trash2 size={14}/> Delete page</button>}</div><div className="builder-tabs"><button className={leftTab==='elements'?'active':''} onClick={()=>setLeftTab('elements')}><Plus size={16}/> Elements</button><button className={leftTab==='layers'?'active':''} onClick={()=>setLeftTab('layers')}><Layers size={16}/> Layers</button></div>
-          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
+          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div><div className="builder-section-presets"><div className="builder-panel-heading"><strong>Sections</strong><span>Ready-made</span></div><p className="builder-hint">Insert a section, then customize its elements in Layers.</p>{sectionPresets.map(preset=><button key={preset.id} className="builder-section-preset" onClick={()=>insertSection(preset)}><span><strong>{preset.name}</strong><small>{preset.description}</small></span><Plus size={17}/></button>)}</div></div> : <div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=><div className={'builder-layer'+(selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag}><button onClick={()=>setSelected(b.id)}><Layers size={15}/>{b.type} <small>{index+1}</small></button><div><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>)}</div>}
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
           <div className="builder-site-header" style={{backgroundColor:globalDesign.headerBackground||undefined,color:globalDesign.headerTextColor||undefined}}><strong>{globalDesign.logoText||site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>

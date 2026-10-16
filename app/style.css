@@ -35,3 +35,7 @@
 .site-global-heading{border-top:1px solid #394861;margin-top:20px;padding-top:20px}.site-global-heading h2{font-size:19px;margin:0 0 8px}.site-settings-form input[type=color]{height:48px;padding:6px;cursor:pointer}.builder-site-header .builder-site-links button{color:inherit}
 
 .site-settings-form select{width:100%;background:#0d1420;border:1px solid #394861;border-radius:8px;color:#edf0fa;padding:12px 14px}
+
+
+/* Phase 12: ready-made page sections */
+.builder-section-presets{margin-top:20px;padding-top:16px;border-top:1px solid rgba(130,150,185,.18)}.builder-section-preset{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;background:rgba(125,150,200,.06);border:1px solid rgba(140,160,195,.2);border-radius:10px;padding:12px;margin:9px 0;color:inherit;cursor:pointer}.builder-section-preset:hover,.builder-section-preset:focus-visible{border-color:#3064fe;background:rgba(48,100,254,.11)}.builder-section-preset span{display:flex;flex-direction:column;gap:5px}.builder-section-preset strong{font-size:13px}.builder-section-preset small{font-size:11px;color:#94a2b9;line-height:1.5}.builder-section-preset svg{flex-shrink:0;color:#8cafff}
