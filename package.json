@@ -11,7 +11,8 @@
     "db:status": "prisma migrate status",
     "db:generate": "prisma generate",
     "test:persistence": "node scripts/verify-persistence.cjs",
-    "cloudflare:env-check": "node scripts/check-cloudflare-env.cjs"
+    "cloudflare:env-check": "node scripts/check-cloudflare-env.cjs",
+    "test:cloudflare-env": "node --test scripts/check-cloudflare-env.test.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
