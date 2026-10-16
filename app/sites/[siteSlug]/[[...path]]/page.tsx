@@ -84,7 +84,7 @@ export default async function PublicPage({params}:Params){
     const config=obj(site?.siteConfig);const seo=obj(config.seo);
     const rules=Array.isArray(seo.redirects)?seo.redirects:[];
     const from='/'+(values.path?.join('/')||'');
-    const rule=rules.find(r=>{const v=obj(r);return v.from===from && typeof v.to==='string' && /^\\/[a-z0-9/-]*$/.test(v.to) && v.to!==from;});
+    const rule=rules.find(r=>{const v=obj(r);return v.from===from && typeof v.to==='string' && v.to.startsWith('/') && !v.to.startsWith('//') && !v.to.includes('..') && v.to!==from;});
     if(rule){const item=obj(rule);const dest=String(item.to);const target='/sites/'+values.siteSlug+(dest==='/'?'':dest);if(item.permanent===false)redirect(target);permanentRedirect(target);}
     notFound();
   }
