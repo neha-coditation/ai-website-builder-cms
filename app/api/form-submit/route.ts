@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {prisma} from '../../../../lib/prisma';
+import {prisma} from '../../../lib/prisma';
 import {z} from 'zod';
 import {Prisma} from '@prisma/client';
 const schema=z.object({siteId:z.string().min(1),formId:z.string().min(1).max(120),pageSlug:z.string().max(300),fields:z.record(z.string().max(5000)),website:z.string().max(200).optional()});
