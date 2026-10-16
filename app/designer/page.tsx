@@ -169,11 +169,15 @@ function Workspace() {
   const canRedo=historyRevision>=0 && historyRef.current.pageKey===historyKey && historyRef.current.future.length>0;
   useEffect(()=>{
     function onKeyDown(event:KeyboardEvent){
-      if(preview || event.altKey || !(event.metaKey||event.ctrlKey) || event.key.toLowerCase()!=='z')return;
+      if(preview || pageSettingsOpen || imagePickerOpen || !loaded)return;
       const element=event.target as HTMLElement|null;
-      if(element?.closest('input,textarea,select,[contenteditable="true"]'))return;
-      event.preventDefault();
-      if(event.shiftKey)redo();else undo();
+      if(element?.closest('input,textarea,select,[contenteditable="true"],[role="dialog"]'))return;
+      const command=event.metaKey||event.ctrlKey;
+      const key=event.key.toLowerCase();
+      if(command&&key==='z'&&!event.altKey){event.preventDefault();if(event.shiftKey)redo();else undo();return;}
+      if(command&&key==='d'&&!event.altKey){event.preventDefault();duplicateSelection();return;}
+      if(!command&&!event.altKey&&(event.key==='Delete'||event.key==='Backspace')){if(selectedIds().length){event.preventDefault();remove();}return;}
+      if(!command&&!event.altKey&&event.key==='Escape'){setSelected(null);setMultiSelected([]);}
     }
     window.addEventListener('keydown',onKeyDown);
     return ()=>window.removeEventListener('keydown',onKeyDown);
@@ -542,10 +546,37 @@ function Workspace() {
     }catch(cause){setError(cause instanceof Error?cause.message:'Video upload failed');}
     finally{setVideoBusy(false);}
   }
-  function remove() {
-    if (!selected) return;
-    setSite(s => ({ ...s, blocks: s.blocks.filter(b => b.id !== selected).map(b=>b.parentId===selected?{...b,parentId:undefined}:b) }));
-    setSelected(null);setMultiSelected([]);
+  function selectedIds(){
+    return multiSelected.length?multiSelected:(selected?[selected]:[]);
+  }
+  function duplicateSelection(){
+    const selectedSet=new Set(selectedIds());
+    if(!selectedSet.size)return;
+    // Duplicate selected containers with their descendants, preserving nested relationships.
+    let changed=true;
+    while(changed){changed=false;for(const block of site.blocks){if(block.parentId&&selectedSet.has(block.parentId)&&!selectedSet.has(block.id)){selectedSet.add(block.id);changed=true;}}}
+    const ids=new Map<string,string>();
+    const existing=[...site.blocks];
+    for(const block of site.blocks){if(selectedSet.has(block.id))ids.set(block.id,makeId());}
+    const copies:Block[]=[];
+    for(const block of site.blocks){
+      if(!selectedSet.has(block.id))continue;
+      const copy:Block={...block,id:ids.get(block.id)!,parentId:block.parentId?(ids.get(block.parentId)||block.parentId):undefined,classNames:autoClass(block.type,existing),style:{...block.style}};
+      existing.push(copy);copies.push(copy);
+    }
+    setSite(prev=>({...prev,blocks:[...prev.blocks,...copies]}));
+    setSelected(copies[0]?.id||null);
+    setMultiSelected(copies.map(block=>block.id));
+    setSaved(false);
+  }
+  function remove(){
+    const ids=new Set(selectedIds());
+    if(!ids.size)return;
+    // Deleting a container also removes its descendants to avoid orphaned blocks.
+    let changed=true;
+    while(changed){changed=false;for(const block of site.blocks){if(block.parentId&&ids.has(block.parentId)&&!ids.has(block.id)){ids.add(block.id);changed=true;}}}
+    setSite(prev=>({...prev,blocks:prev.blocks.filter(block=>!ids.has(block.id))}));
+    setSelected(null);setMultiSelected([]);setSaved(false);
   }
 
   async function save() {
@@ -623,7 +654,7 @@ function Workspace() {
         {!preview&&<button className="builder-panel-toggle builder-panel-toggle-right" onClick={()=>setRightCollapsed(v=>!v)} title={rightCollapsed?'Show inspector':'Hide inspector'} aria-label={rightCollapsed?'Show inspector':'Hide inspector'}><ChevronLeft size={16} style={{transform:rightCollapsed?undefined:'rotate(180deg)'}}/></button>}
         {!preview && <aside className="builder-left">
           {leftTab==='pages'&&<div className={"builder-pages"+(pagesExpanded?" expanded":"")}><div className="builder-panel-heading"><strong><Files size={15}/> Pages</strong><button type="button" className="builder-pages-toggle" onClick={()=>setPagesExpanded(v=>!v)} aria-expanded={pagesExpanded} aria-label={pagesExpanded?"Collapse pages":"Expand pages"}><ChevronsUpDown size={14}/><span>{pages.length}</span></button></div><div className="builder-pages-details"><div className="builder-page-list">{pages.map(page=><button key={page.id} className={pageId===page.id?'active':''} onClick={()=>openPage(page)}>{page.title}<small>/{page.slug}</small></button>)}</div><button className="builder-page-settings-open" onClick={()=>setPageSettingsOpen(true)}><Settings2 size={15}/> Page settings</button><div className="builder-new-page"><input aria-label="New page name" placeholder="New page name" value={newPageName} onChange={event=>setNewPageName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void createPage();}}/><button disabled={!newPageName.trim()||creatingPage} onClick={()=>void createPage()} title="Create page"><FilePlus2 size={16}/></button></div>{pages.find(page=>page.id===pageId)?.slug!=='home'&&pageId&&<button className="builder-remove-page" onClick={()=>void deletePage()}><Trash2 size={14}/> Delete page</button>}</div></div>}
-          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div><div className="builder-section-presets"><div className="builder-panel-heading"><strong>Sections</strong><span>Ready-made</span></div><p className="builder-hint">Insert a section, then customize its elements in Layers.</p>{sectionPresets.map(preset=><button key={preset.id} className="builder-section-preset" onClick={()=>insertSection(preset)}><span><strong>{preset.name}</strong><small>{preset.description}</small></span><Plus size={17}/></button>)}</div></div> : leftTab==='assets'?<div className="builder-side-content builder-assets-panel"><div className="builder-panel-heading"><strong>Assets</strong><span>{assets.length}</span></div><p className="builder-hint">Upload images from your computer, then select Use to insert them.</p><label className="builder-upload-zone">Upload images<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files);e.target.value='';}}/></label><p className="builder-hint">PNG, JPEG or WebP, maximum 10 MB each. Local development storage.</p>{assetBusy&&<p>Uploading images…</p>}<div className="builder-asset-grid">{assets.map(asset=><div className="builder-asset-card" key={asset.id}><img src={asset.url} alt={asset.alt||''} loading="lazy"/><strong>{asset.name}</strong><div><button onClick={()=>useAsset(asset)}>Use</button><button onClick={()=>void deleteAsset(asset.id)} aria-label={'Remove '+asset.name}><Trash2 size={14}/></button></div></div>)}</div></div> : leftTab==='layers'?<div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div><div className="builder-group-actions"><span>{multiSelected.length} selected</span><button disabled={multiSelected.length<2} onClick={groupSelection}>Group in Container</button><button disabled={!current||current.type!=='container'} onClick={ungroupSelection}>Ungroup</button></div><p className="builder-hint">Cmd/Ctrl-click or Shift-click layers to select multiple elements.</p><div className="builder-layer-search"><Search size={15}/><input aria-label="Search layers" placeholder="Find layers…" value={layerSearch} onChange={e=>setLayerSearch(e.target.value)}/></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=>{const Icon=layerIcons[b.type]||Layers;const depth=b.parentId?1:0;const visible=!layerSearch||[layerLabel(b),b.type,b.classNames||''].join(' ').toLowerCase().includes(layerSearch.toLowerCase());return visible?<div className={'builder-layer'+(multiSelected.includes(b.id)||selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag} style={{paddingLeft:depth?14:0}}><button title={b.classNames||b.type} onClick={event=>toggleSelection(b.id,event.metaKey||event.ctrlKey||event.shiftKey)}><GripVertical size={12} className="builder-layer-grip"/><Icon size={15}/><span className="builder-layer-label">{layerLabel(b)}</span></button><div className="builder-layer-actions"><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>:null})}</div> : null}
+          {leftTab==='elements' ? <div className="builder-side-content"><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div><div className="builder-section-presets"><div className="builder-panel-heading"><strong>Sections</strong><span>Ready-made</span></div><p className="builder-hint">Insert a section, then customize its elements in Layers.</p>{sectionPresets.map(preset=><button key={preset.id} className="builder-section-preset" onClick={()=>insertSection(preset)}><span><strong>{preset.name}</strong><small>{preset.description}</small></span><Plus size={17}/></button>)}</div></div> : leftTab==='assets'?<div className="builder-side-content builder-assets-panel"><div className="builder-panel-heading"><strong>Assets</strong><span>{assets.length}</span></div><p className="builder-hint">Upload images from your computer, then select Use to insert them.</p><label className="builder-upload-zone">Upload images<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files);e.target.value='';}}/></label><p className="builder-hint">PNG, JPEG or WebP, maximum 10 MB each. Local development storage.</p>{assetBusy&&<p>Uploading images…</p>}<div className="builder-asset-grid">{assets.map(asset=><div className="builder-asset-card" key={asset.id}><img src={asset.url} alt={asset.alt||''} loading="lazy"/><strong>{asset.name}</strong><div><button onClick={()=>useAsset(asset)}>Use</button><button onClick={()=>void deleteAsset(asset.id)} aria-label={'Remove '+asset.name}><Trash2 size={14}/></button></div></div>)}</div></div> : leftTab==='layers'?<div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div><div className="builder-group-actions"><span>{multiSelected.length} selected</span><button disabled={multiSelected.length<2} onClick={groupSelection}>Group in Container</button><button disabled={!current||current.type!=='container'} onClick={ungroupSelection}>Ungroup</button><button disabled={!selectedIds().length} onClick={duplicateSelection} title="Duplicate selected (Cmd/Ctrl+D)">Duplicate</button><button disabled={!selectedIds().length} onClick={remove} title="Delete selected (Delete/Backspace)">Delete</button></div><p className="builder-hint">Cmd/Ctrl-click or Shift-click layers to select multiple elements.</p><div className="builder-layer-search"><Search size={15}/><input aria-label="Search layers" placeholder="Find layers…" value={layerSearch} onChange={e=>setLayerSearch(e.target.value)}/></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:site.blocks.map((b,index)=>{const Icon=layerIcons[b.type]||Layers;const depth=b.parentId?1:0;const visible=!layerSearch||[layerLabel(b),b.type,b.classNames||''].join(' ').toLowerCase().includes(layerSearch.toLowerCase());return visible?<div className={'builder-layer'+(multiSelected.includes(b.id)||selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag} style={{paddingLeft:depth?14:0}}><button title={b.classNames||b.type} onClick={event=>toggleSelection(b.id,event.metaKey||event.ctrlKey||event.shiftKey)}><GripVertical size={12} className="builder-layer-grip"/><Icon size={15}/><span className="builder-layer-label">{layerLabel(b)}</span></button><div className="builder-layer-actions"><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>:null})}</div> : null}
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
           <div className="builder-site-header" style={{backgroundColor:globalDesign.headerBackground||undefined,color:globalDesign.headerTextColor||undefined}}><strong>{globalDesign.logoText||site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>
