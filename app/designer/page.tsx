@@ -1,9 +1,9 @@
 'use client';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
+import { FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, Undo2, Redo2, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list' | 'container';
 type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; parentId?:string; layout?:'column'|'row'|'grid';gap?:number;columns?:number; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right'; width?: 'auto'|'full'|'half'; maxWidth?: number; marginTop?: number; marginBottom?: number } };
@@ -74,10 +74,72 @@ function Workspace() {
   const [newPageName, setNewPageName] = useState('');
   const [error, setError] = useState('');
   const storageKey = 'studio-cms-designer-' + (siteId || 'local');
+  const historyRef = useRef<{pageKey:string;past:Site[];present:Site|null;future:Site[]}>({pageKey:'',past:[],present:null,future:[]});
+  const [historyRevision,setHistoryRevision] = useState(0);
+  const [historyReady,setHistoryReady] = useState(false);
+  const historyKey = siteId + ':' + pageId;
+  const resetHistory = (key:string) => {
+    historyRef.current = {pageKey:key,past:[],present:null,future:[]};
+    setHistoryRevision(n=>n+1);
+  };
+  useEffect(()=>{
+    if (!loaded || !historyReady) return;
+    const history=historyRef.current;
+    if(history.pageKey!==historyKey) {
+      historyRef.current={pageKey:historyKey,past:[],present:structuredClone(site),future:[]};
+      setHistoryRevision(n=>n+1);
+      return;
+    }
+    if(!history.present) {
+      history.present=structuredClone(site);
+      setHistoryRevision(n=>n+1);
+      return;
+    }
+    if(JSON.stringify(history.present)===JSON.stringify(site))return;
+    history.past=[...history.past.slice(-49),history.present];
+    history.present=structuredClone(site);
+    history.future=[];
+    setHistoryRevision(n=>n+1);
+  },[site,loaded,historyKey,historyReady]);
+  function undo() {
+    const history=historyRef.current;
+    if(!history.past.length || history.pageKey!==historyKey)return;
+    const previous=history.past.pop()!;
+    if(history.present)history.future.unshift(history.present);
+    history.present=previous;
+    setSite(structuredClone(previous));
+    setSaved(false);
+    setHistoryRevision(n=>n+1);
+  }
+  function redo() {
+    const history=historyRef.current;
+    if(!history.future.length || history.pageKey!==historyKey)return;
+    const next=history.future.shift()!;
+    if(history.present)history.past.push(history.present);
+    history.present=next;
+    setSite(structuredClone(next));
+    setSaved(false);
+    setHistoryRevision(n=>n+1);
+  }
+  const canUndo=historyRevision>=0 && historyRef.current.pageKey===historyKey && historyRef.current.past.length>0;
+  const canRedo=historyRevision>=0 && historyRef.current.pageKey===historyKey && historyRef.current.future.length>0;
+  useEffect(()=>{
+    function onKeyDown(event:KeyboardEvent){
+      if(preview || event.altKey || !(event.metaKey||event.ctrlKey) || event.key.toLowerCase()!=='z')return;
+      const element=event.target as HTMLElement|null;
+      if(element?.closest('input,textarea,select,[contenteditable="true"]'))return;
+      event.preventDefault();
+      if(event.shiftKey)redo();else undo();
+    }
+    window.addEventListener('keydown',onKeyDown);
+    return ()=>window.removeEventListener('keydown',onKeyDown);
+  });
+
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      setHistoryReady(false);
       setLoaded(false);
       setError('');
       let projectName = 'Untitled website';
@@ -120,7 +182,7 @@ function Workspace() {
           }
         } catch { /* Invalid browser draft: use starter. */ }
       }
-      if (!cancelled) { setSite(value); setSelected(value.blocks[0]?.id || null); setLoaded(true); }
+      if (!cancelled) { resetHistory(siteId + ':' + (pageId || '')); setSite(value); setSelected(value.blocks[0]?.id || null); setLoaded(true); setHistoryReady(true); }
     }
     void load();
     return () => { cancelled = true; };
@@ -147,6 +209,8 @@ function Workspace() {
     return ()=>{cancelled=true;};
   },[site.blocks,siteId]);
   function openPage(page: ProjectPage) {
+    setHistoryReady(false);
+    resetHistory(siteId + ':' + page.id);
     const content = page.content;
     const blocks = content && typeof content === 'object' && !Array.isArray(content) && 'blocks' in content && Array.isArray((content as { blocks: unknown }).blocks)
       ? (content as { blocks: Block[] }).blocks : [];
@@ -155,6 +219,7 @@ function Workspace() {
     setSite(previous => ({ name: previous.name, blocks, seo: content && typeof content === 'object' && !Array.isArray(content) && 'seo' in content ? (content as { seo: Seo }).seo : undefined }));
     setSelected(blocks[0]?.id || null);
     setError('');
+    setHistoryReady(true);
   }
   async function createPage() {
     const title = newPageName.trim();
