@@ -9,7 +9,7 @@ type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list';
 type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
 type Seo = { title: string; description: string; noindex: boolean; ogImage: string };
 type Site = { name: string; blocks: Block[]; seo?: Seo };
-type GlobalDesign = { logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string };
+type GlobalDesign = { primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string };
 type DbSite = { id: string; name: string; globalDesign?:GlobalDesign };
 type ProjectPage = { id: string; slug: string; title: string; content: unknown };
 type CmsCollection = { id: string; name: string; fields: {name:string;type:string}[] };
@@ -262,8 +262,8 @@ function Workspace() {
   }
   function renderBlock(b: Block) {
     const style: React.CSSProperties = {
-      color: b.style?.color,
-      backgroundColor: b.style?.background,
+      color: b.style?.color || globalDesign.bodyTextColor,
+      backgroundColor: b.style?.background || (b.type==='button' ? globalDesign.primaryColor : undefined),
       fontSize: b.style?.fontSize ? b.style.fontSize + 'px' : undefined,
       padding: b.style?.padding === undefined ? undefined : b.style.padding + 'px',
       borderRadius: b.style?.radius === undefined ? undefined : b.style.radius + 'px',
@@ -304,7 +304,7 @@ function Workspace() {
         </aside>}
         <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
           <div className="builder-site-header" style={{backgroundColor:globalDesign.headerBackground||undefined,color:globalDesign.headerTextColor||undefined}}><strong>{globalDesign.logoText||site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>
-          <div className={'builder-site-body'+(dragging?' is-dragging':'')} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
+          <div className={'builder-site-body'+(dragging?' is-dragging':'')} style={{backgroundColor:globalDesign.pageBackground||undefined,color:globalDesign.bodyTextColor||undefined,fontFamily:globalDesign.fontFamily||undefined}} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
             {site.blocks.map((b,index)=><div key={b.id}>
               {!preview && dropZone(index)}
               <div className={'builder-block'+(selected===b.id&&!preview?' selected':'')} draggable={!preview}
