@@ -22,6 +22,13 @@ const starter = (name: string): Site => ({ name, blocks: [
   { id: 'hero-copy', type: 'paragraph', text: 'Create, customize and launch your next website.', style: { fontSize: 19 } },
   { id: 'hero-button', type: 'button', text: 'Get started', style: { background: '#3064fe', color: '#ffffff', radius: 8 } },
 ] });
+function autoClass(type:BlockType,existing:Block[]):string{
+  const used=new Set(existing.flatMap(b=>(b.classNames||'').split(/\s+/).filter(Boolean)));
+  const base='element-'+type;
+  let i=1;
+  while(used.has(base+'-'+i))i++;
+  return base+'-'+i;
+}
 const makeId = () => Math.random().toString(36).slice(2);
 const palette: { type: BlockType; label: string; icon: typeof Type; description: string }[] = [
   { type: 'heading', label: 'Heading', icon: Heading1, description: 'Titles and headings' },
@@ -291,7 +298,7 @@ function Workspace() {
   }
   function useAsset(asset:Asset){
     if(current?.type==='image'){updateBlock({text:asset.url,alt:asset.alt});setRightTab('content');setImagePickerOpen(false);}
-    else{const block:Block={id:makeId(),type:'image',text:asset.url,alt:asset.alt,style:{}};setSite(previous=>({...previous,blocks:[...previous.blocks,block]}));setSelected(block.id);setRightTab('content');}
+    else{const block:Block={id:makeId(),type:'image',text:asset.url,alt:asset.alt,classNames:autoClass('image',site.blocks),style:{}};setSite(previous=>({...previous,blocks:[...previous.blocks,block]}));setSelected(block.id);setRightTab('content');}
   }
   function openPage(page: ProjectPage) {
     setHistoryReady(false);
@@ -337,7 +344,7 @@ function Workspace() {
   const current = site.blocks.find(b => b.id === selected);
   function updateSeo(patch: Partial<Seo>) { setSite(previous => ({ ...previous, seo: { title:'',description:'',noindex:false,ogImage:'',...previous.seo,...patch } })); }
   function add(type: BlockType) {
-    const block: Block = { id: makeId(), type, text: defaults[type], style: {} };
+    const block: Block = { id: makeId(), type, text: defaults[type], classNames:autoClass(type,site.blocks), style: {} };
     setSite(s => ({ ...s, blocks: [...s.blocks, block] }));
     setSelected(block.id);
     setLeftTab('layers');
@@ -346,7 +353,8 @@ function Workspace() {
   }
 
   function insertSection(preset: SectionPreset) {
-    const blocks: Block[] = preset.blocks.map(block=>({...block,id:makeId(),style:{...block.style}}));
+    const reserved=[...site.blocks];
+    const blocks: Block[] = preset.blocks.map(block=>{const next:Block={...block,id:makeId(),classNames:autoClass(block.type,reserved),style:{...block.style}};reserved.push(next);return next;});
     setSite(previous=>({...previous,blocks:[...previous.blocks,...blocks]}));
     setSelected(blocks[0]?.id||null);
     setLeftTab('layers');
@@ -378,7 +386,7 @@ function Workspace() {
     try { payload = JSON.parse(raw); } catch { return; }
     if (payload.type === 'new') {
       if (!palette.some(item => item.type === payload.blockType)) return;
-      const block: Block = { id: makeId(), type: payload.blockType, text: defaults[payload.blockType], style: {} };
+      const block: Block = { id: makeId(), type: payload.blockType, text: defaults[payload.blockType], classNames:autoClass(payload.blockType,site.blocks), style: {} };
       setSite(prev => ({ ...prev, blocks: [...prev.blocks.slice(0, index), block, ...prev.blocks.slice(index)] }));
       setSelected(block.id);
       setRightTab('content');
