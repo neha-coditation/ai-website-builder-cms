@@ -134,3 +134,12 @@
 .builder-layer-spacer{display:block;width:13px;height:13px}
 .builder-layer{display:flex;align-items:center;gap:2px}
 .builder-layer>button:not(.builder-layer-expand){min-width:0}
+
+
+/* Phase 28: Layers drag targets */
+.builder-layer{position:relative}
+.builder-layer-drop-before{position:absolute;left:0;right:0;top:-4px;height:7px;z-index:2;pointer-events:auto}
+.builder-layer-drop-before:hover{background:#5280ff}
+.builder-layer-nest,.builder-layer-after{display:flex;align-items:center;justify-content:center;flex:0 0 19px;min-width:19px;height:23px;border:1px dashed transparent;border-radius:5px;background:transparent;color:#8ba7d9;opacity:.45}
+.builder-layer-nest:hover,.builder-layer-after:hover{border-color:#7197ff;background:rgba(48,100,254,.2);opacity:1}
+.builder-layer:hover .builder-layer-nest,.builder-layer:hover .builder-layer-after{opacity:1}
