@@ -99,3 +99,17 @@
 .builder-side-content{padding-bottom:36px}
 .builder-panel-heading{min-height:34px}
 .builder-stage{min-width:0}
+
+
+/* Phase 25: top-level designer navigation */
+.builder{display:block}
+.builder-main{width:100%;min-width:0}
+.builder-toolbar{gap:14px;padding-left:18px;padding-right:18px}
+.builder-top-nav{display:flex;align-items:center;gap:2px;min-width:0;flex-wrap:wrap}
+.builder-top-nav button,.builder-top-nav a{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border:0;background:transparent;color:#aab9d1;font-size:12px;text-decoration:none;white-space:nowrap;border-radius:6px}
+.builder-top-nav button:hover,.builder-top-nav a:hover{background:#24314a;color:#fff}
+.builder-top-nav button:focus-visible,.builder-top-nav a:focus-visible{outline:2px solid #7294ff}
+.builder-top-nav button.active{background:#243b68;color:#fff}
+.builder-page-settings-open{width:calc(100% - 18px);margin:10px 9px;justify-content:flex-start}
+.builder-page-settings-modal{max-width:640px}
+@media(max-width:1450px){.builder-toolbar{flex-wrap:wrap;height:auto;min-height:60px;padding-top:8px;padding-bottom:8px}.builder-top-nav{order:3;width:100%;justify-content:center}.builder-top-nav button,.builder-top-nav a{padding:6px 8px}}
