@@ -16,6 +16,7 @@ model Site {
   defaultTitle String         @default("")
   globalDesign Json           @default("{}")
   assets      SiteAsset[]
+  components  SiteComponent[]
   pages       Page[]
   collections CmsCollection[]
   createdAt   DateTime        @default(now())
@@ -67,5 +68,16 @@ model SiteAsset {
   url       String
   alt       String   @default("")
   createdAt DateTime @default(now())
+  @@index([siteId, createdAt])
+}
+
+model SiteComponent {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  blocks    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   @@index([siteId, createdAt])
 }
