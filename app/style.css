@@ -176,3 +176,24 @@
 
 /* Phase 35: interactive tab controls */
 .builder-element-tabs{display:flex;flex-wrap:wrap;gap:5px;border-bottom:1px solid #47556d}.builder-element-tabs button{padding:10px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;cursor:pointer}.builder-element-tabs button.active,.builder-element-tabs button[aria-selected="true"]{border-bottom-color:#3064fe;font-weight:650}.builder-tab-panel{padding:16px 8px;min-height:72px;white-space:pre-wrap}.builder-tab-editor-label{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:12px}.builder-tab-editor-label textarea{width:100%;min-height:76px}
+
+
+/* Phase 36: structured site-level settings workspace */
+.site-settings-main{max-width:1280px!important}
+.studio-settings-layout{display:grid;grid-template-columns:225px minmax(0,1fr);gap:28px;align-items:start;margin-top:26px}
+.studio-settings-sidebar{position:sticky;top:22px;display:flex;flex-direction:column;gap:4px;padding:12px;background:#111a2a;border:1px solid #29374c;border-radius:12px}
+.studio-settings-sidebar button{display:flex;align-items:center;gap:11px;text-align:left;padding:12px;border:0;border-radius:8px;background:transparent;color:#b5c4da;font-size:13px;cursor:pointer}
+.studio-settings-sidebar button:hover{background:#1d2b43;color:#fff}
+.studio-settings-sidebar button.active{background:#263e68;color:#fff;font-weight:600}
+.site-settings-form{max-width:none!important;min-width:0;background:#111a2a;border:1px solid #29374c;border-radius:12px;padding:26px!important}
+.studio-settings-panel-heading{border-bottom:1px solid #29374c;padding-bottom:20px;margin-bottom:22px}
+.studio-settings-panel-heading>span{font-size:10px;letter-spacing:.12em;color:#7e9ac4;font-weight:700}
+.studio-settings-panel-heading h2{font-size:23px;margin:9px 0 6px;color:#eef4ff}
+.studio-settings-panel-heading p{color:#9aaec9;font-size:13px;margin:0}
+.studio-settings-fields{display:flex;flex-direction:column;gap:10px}
+.studio-settings-fields>label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:550;color:#d8e4f8}
+.studio-settings-fields>label input:not([type=checkbox]),.studio-settings-fields>label textarea{width:100%;box-sizing:border-box}
+.studio-settings-fields>label.studio-settings-toggle{flex-direction:row;align-items:center;gap:10px;margin:10px 0}
+.studio-settings-fields>label.studio-settings-toggle input{width:16px;height:16px}
+.studio-settings-note{font-size:12px;color:#9aaec9;border-left:2px solid #4c6fac;padding:8px 12px;line-height:1.55}
+@media(max-width:800px){.studio-settings-layout{grid-template-columns:1fr;gap:12px}.studio-settings-sidebar{position:static;flex-direction:row;flex-wrap:wrap}.studio-settings-sidebar button{flex:1 1 130px}.site-settings-form{padding:18px!important}}
