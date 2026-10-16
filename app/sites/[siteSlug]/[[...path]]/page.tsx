@@ -67,7 +67,7 @@ function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0}: {
   if(block.type==='select')return <select {...attrs} style={style}>{(block.text||'Option 1|Option 2').split('|').map((value,i)=><option key={i}>{value.trim()}</option>)}</select>;
   if(block.type==='divider')return <hr {...attrs} style={style}/>;
   if(block.type==='spacer')return <div {...attrs} style={{height:40,...style}} aria-hidden="true"/>;
-  if(block.type==='video')return /^(https:\/\/|\/uploads\/)/.test(block.text)?<video {...attrs} src={block.text} controls preload="metadata" style={{...style,maxWidth:'100%'}}/>:<div {...attrs}>Video source not configured</div>;
+  if(block.type==='video')return /^(https:\/\/|\/uploads\/)/.test(block.text ?? '')?<video {...attrs} src={block.text} controls preload="metadata" style={{...style,maxWidth:'100%'}}/>:<div {...attrs}>Video source not configured</div>;
   if(block.type==='embed')return <pre {...attrs} style={{...style,whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{block.text}</pre>;
   if(block.type==='container'&&depth<4){
     const children=blocks.filter(b=>b.parentId===block.id);
