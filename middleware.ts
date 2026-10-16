@@ -3,7 +3,7 @@ import {SESSION_COOKIE,verifyAdminSession} from './lib/admin-session';
 export async function middleware(request:NextRequest){
  const path=request.nextUrl.pathname;
  if(path==='/login'||path==='/api/admin-session'||path.startsWith('/_next/')||path==='/favicon.ico'||path.startsWith('/sites/')||path==='/api/form-submit')return NextResponse.next();
- const protectedRoute=path==='/'||path.startsWith('/api/')||['/designer','/project','/settings','/forms','/cms'].some(p=>path===p||path.startsWith(p+'/'));
+ const protectedRoute=path==='/'||path.startsWith('/api/')||['/designer','/project','/settings','/forms','/cms','/migration'].some(p=>path===p||path.startsWith(p+'/'));
  if(!protectedRoute)return NextResponse.next();
  const secret=process.env.STUDIO_SESSION_SECRET;
  const password=process.env.STUDIO_ADMIN_PASSWORD;
@@ -19,4 +19,4 @@ export async function middleware(request:NextRequest){
  }
  return NextResponse.next();
 }
-export const config={matcher:['/','/api/:path*','/designer/:path*','/project/:path*','/settings/:path*','/forms/:path*','/cms/:path*']};
+export const config={matcher:['/','/api/:path*','/designer/:path*','/project/:path*','/settings/:path*','/forms/:path*','/cms/:path*','/migration/:path*']};
