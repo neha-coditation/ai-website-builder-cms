@@ -103,6 +103,7 @@ function Workspace() {
   const [saving, setSaving] = useState(false);
   const [autoSaveStatus,setAutoSaveStatus]=useState<'idle'|'saving'|'saved'|'error'>('idle');
   const [components,setComponents]=useState<SavedComponent[]>([]);
+  const [componentsLoaded,setComponentsLoaded]=useState(false);
   const [componentName,setComponentName]=useState('');
   const lastAutoSaved=useRef<{key:string;json:string}>({key:'',json:''});
   const autoSaveRequest=useRef<Promise<void>>(Promise.resolve());
@@ -154,16 +155,18 @@ function Workspace() {
   },[site,loaded,historyKey,historyReady]);
   useEffect(()=>{
     if(!siteId)return;
+    setComponentsLoaded(false);
     try{
       const raw=localStorage.getItem('studio-components-'+siteId);
       const parsed=raw?JSON.parse(raw):[];
       setComponents(Array.isArray(parsed)?parsed:[]);
     }catch{setComponents([]);}
+    setComponentsLoaded(true);
   },[siteId]);
   useEffect(()=>{
-    if(!siteId)return;
+    if(!siteId||!componentsLoaded)return;
     localStorage.setItem('studio-components-'+siteId,JSON.stringify(components));
-  },[siteId,components]);
+  },[siteId,components,componentsLoaded]);
   useEffect(()=>{
     if(!loaded||!historyReady||!siteId)return;
     const key=siteId+':'+pageId;
