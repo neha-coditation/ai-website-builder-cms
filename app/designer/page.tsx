@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Type, X } from 'lucide-react';
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list';
-type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right' } };
+type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right'; width?: 'auto'|'full'|'half'; maxWidth?: number; marginTop?: number; marginBottom?: number } };
 type Seo = { title: string; description: string; noindex: boolean; ogImage: string };
 type Site = { name: string; blocks: Block[]; seo?: Seo };
 type GlobalDesign = { primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string };
@@ -298,6 +298,9 @@ function Workspace() {
       padding: b.style?.padding === undefined ? undefined : b.style.padding + 'px',
       borderRadius: b.style?.radius === undefined ? undefined : b.style.radius + 'px',
       textAlign: b.style?.align,
+      maxWidth: b.style?.maxWidth ? b.style.maxWidth+'px' : undefined,
+      marginTop: b.style?.marginTop===undefined?undefined:b.style.marginTop+'px',
+      marginBottom: b.style?.marginBottom===undefined?undefined:b.style.marginBottom+'px',
     };
     if (b.type === 'heading') return <h1 style={style}>{b.text}</h1>;
     if (b.type === 'paragraph') return <p style={style}>{b.text}</p>;
@@ -337,7 +340,7 @@ function Workspace() {
           <div className={'builder-site-body'+(dragging?' is-dragging':'')} style={{backgroundColor:globalDesign.pageBackground||undefined,color:globalDesign.bodyTextColor||undefined,fontFamily:globalDesign.fontFamily||undefined}} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
             {site.blocks.map((b,index)=><div key={b.id}>
               {!preview && dropZone(index)}
-              <div className={'builder-block'+(selected===b.id&&!preview?' selected':'')} draggable={!preview}
+              <div className={'builder-block'+(selected===b.id&&!preview?' selected':'')} style={{width:b.style?.width==='full'?'100%':b.style?.width==='half'?'50%':undefined,maxWidth:'100%'}} draggable={!preview}
                 onDragStart={event=>startDrag(event,{type:'move',id:b.id})} onDragEnd={endDrag}
                 onDragOver={event=>{if(preview)return;const rect=event.currentTarget.getBoundingClientRect();acceptDrag(event,index+(event.clientY>rect.top+rect.height/2?1:0));}}
                 onDrop={event=>{if(preview)return;const rect=event.currentTarget.getBoundingClientRect();dropBlock(event,index+(event.clientY>rect.top+rect.height/2?1:0));}}
@@ -356,7 +359,7 @@ function Workspace() {
               <label htmlFor="builder-font-size">Font size (px)</label><input id="builder-font-size" type="number" min="8" max="120" placeholder="Default" value={current.style?.fontSize??''} onChange={e=>updateStyle({fontSize:e.target.value?Number(e.target.value):undefined})}/>
               <label htmlFor="builder-padding">Padding (px)</label><input id="builder-padding" type="number" min="0" max="160" placeholder="Default" value={current.style?.padding??''} onChange={e=>updateStyle({padding:e.target.value?Number(e.target.value):0})}/>
               <label htmlFor="builder-radius">Corner radius (px)</label><input id="builder-radius" type="number" min="0" max="120" placeholder="Default" value={current.style?.radius??''} onChange={e=>updateStyle({radius:e.target.value?Number(e.target.value):0})}/>
-              <label htmlFor="builder-align">Text alignment</label><select id="builder-align" value={current.style?.align||'left'} onChange={e=>updateStyle({align:e.target.value as 'left'|'center'|'right'})}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></>}
+              <div className="builder-layout-heading">Layout & spacing</div><label htmlFor="builder-width">Element width</label><select id="builder-width" value={current.style?.width||'auto'} onChange={e=>updateStyle({width:e.target.value as 'auto'|'full'|'half'})}><option value="auto">Auto</option><option value="full">Full width</option><option value="half">Half width</option></select><label htmlFor="builder-max-width">Max width (px)</label><input id="builder-max-width" type="number" min="100" max="2000" placeholder="None" value={current.style?.maxWidth??''} onChange={e=>updateStyle({maxWidth:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-margin-top">Space above (px)</label><input id="builder-margin-top" type="number" min="0" max="500" value={current.style?.marginTop??''} onChange={e=>updateStyle({marginTop:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-margin-bottom">Space below (px)</label><input id="builder-margin-bottom" type="number" min="0" max="500" value={current.style?.marginBottom??''} onChange={e=>updateStyle({marginBottom:e.target.value?Number(e.target.value):undefined})}/><label htmlFor="builder-align">Text alignment</label><select id="builder-align" value={current.style?.align||'left'} onChange={e=>updateStyle({align:e.target.value as 'left'|'center'|'right'})}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></>}
           </div> : <div className="builder-side-content builder-hint">Select an element on the canvas or in Layers to edit its content and styles.</div>}
         </aside>}
       </div>

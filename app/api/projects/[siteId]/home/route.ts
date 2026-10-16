@@ -16,6 +16,10 @@ const block = z.object({
     padding: z.number().finite().min(0).max(1000).optional(),
     radius: z.number().finite().min(0).max(1000).optional(),
     align: z.enum(['left', 'center', 'right']).optional(),
+    width: z.enum(['auto','full','half']).optional(),
+    maxWidth: z.number().finite().min(100).max(2000).optional(),
+    marginTop: z.number().finite().min(0).max(500).optional(),
+    marginBottom: z.number().finite().min(0).max(500).optional(),
   }).optional(),
 });
 const documentSchema = z.object({
