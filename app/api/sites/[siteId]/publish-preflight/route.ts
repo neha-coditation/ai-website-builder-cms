@@ -24,7 +24,7 @@ export async function GET(_request:Request,{params}:Context){
    const b=record(block),href=typeof b.href==='string'?b.href.trim():'';
    if(!href||href.startsWith('#')||href.startsWith('mailto:')||href.startsWith('tel:'))continue;
    if(href.startsWith('/')){
-    const target=href.split(/[?#]/,1)[0].replace(/\\/$/,'')||'/';
+    const target=href.split(/[?#]/,1)[0].replace(/\/$/,'')||'/';
     if(!href.startsWith('//')&&target!=='/'&&!slugs.has(target.slice(1)))issues.push({severity:'warning',code:'unresolved-internal-link',page:page.slug,message:'Review internal link target: '+target.slice(0,160)});
    }else if(!/^https?:\/\//i.test(href))issues.push({severity:'warning',code:'relative-link',page:page.slug,message:'Review relative link: '+href.slice(0,160)});
   }
