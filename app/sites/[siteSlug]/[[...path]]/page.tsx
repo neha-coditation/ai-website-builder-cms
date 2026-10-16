@@ -48,7 +48,18 @@ function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];desi
   if(block.type==='heading')return <h2 {...attrs} style={style}>{block.text}</h2>;
   if(block.type==='paragraph')return <p {...attrs} style={style}>{block.text}</p>;
   if(block.type==='button'){const href=block.href||'';const safe=href.startsWith('/')&&!href.startsWith('//')||/^https:\/\//.test(href);return safe?<a {...attrs} href={href} rel={href.startsWith('https://')?'noopener noreferrer':undefined} className={['published-button',block.classNames].filter(Boolean).join(' ')} style={style}>{block.text}</a>:<span {...attrs} className={['published-button',block.classNames].filter(Boolean).join(' ')} style={style}>{block.text}</span>;}
-  if(block.type==='image')return block.text&&/^https:\/\//.test(block.text)?<img {...attrs} src={block.text} alt={block.alt||''} style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
+  if(block.type==='image')return block.text&&(/^(https:\/\/|\/uploads\/)/.test(block.text))?<img {...attrs} src={block.text} alt={block.alt||''} style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
+  if(block.type==='form')return <form {...attrs} style={style} action="#" onSubmit={undefined}><strong>{block.text||'Contact'}</strong><label>Name<input name="name" required/></label><label>Email<input name="email" type="email" required/></label><label>Message<textarea name="message"/></label><button type="submit">Submit</button><p>Form delivery is not configured.</p></form>;
+  if(block.type==='search')return <form {...attrs} style={style} role="search" action="#" method="get"><input type="search" name="q" placeholder={block.text||'Search'}/><button type="submit">Search</button></form>;
+  if(block.type==='dropdown')return <details {...attrs} style={style}><summary>{block.text||'Menu'}</summary><div>Dropdown content</div></details>;
+  if(block.type==='tabs'){const tabs=(block.text||'Overview|Details').split('|').map(t=>t.trim()).filter(Boolean);return <div {...attrs} style={style}><nav aria-label="Tabs">{tabs.map((tab,i)=><a key={i} href={'#tab-'+block.id+'-'+i}>{tab}</a>)}</nav>{tabs.map((tab,i)=><section key={i} id={'tab-'+block.id+'-'+i}><h3>{tab}</h3></section>)}</div>;}
+  if(block.type==='input')return <input {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
+  if(block.type==='textarea')return <textarea {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
+  if(block.type==='checkbox')return <label {...attrs} style={style}><input type="checkbox"/> {block.text}</label>;
+  if(block.type==='select')return <select {...attrs} style={style}>{(block.text||'Option 1|Option 2').split('|').map((value,i)=><option key={i}>{value.trim()}</option>)}</select>;
+  if(block.type==='divider')return <hr {...attrs} style={style}/>;
+  if(block.type==='spacer')return <div {...attrs} style={{height:40,...style}} aria-hidden="true"/>;
+  if(block.type==='video'||block.type==='embed')return <div {...attrs} style={style}>{block.type==='video'?'Video source not configured':'Embed content not configured'}</div>;
   if(block.type==='container'&&depth<4){
     const children=blocks.filter(b=>b.parentId===block.id);
     return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} depth={depth+1}/>)}</div>;
