@@ -527,6 +527,7 @@ function Workspace() {
           </div> : <div className="builder-side-content builder-hint">Select an element on the canvas or in Layers to edit its content and styles.</div>}
         </aside>}
       </div>
+{imagePickerOpen&&<div className="builder-asset-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setImagePickerOpen(false);}}><div className="builder-asset-modal" role="dialog" aria-modal="true" aria-label="Choose image"><div className="builder-panel-heading"><strong>Choose image from Assets</strong><button onClick={()=>setImagePickerOpen(false)} aria-label="Close image picker"><X size={18}/></button></div><label className="builder-upload-zone">Upload new image<input type="file" accept="image/png,image/jpeg,image/webp" disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files,true);e.target.value='';}}/></label><div className="builder-asset-modal-grid">{assets.map(asset=><button key={asset.id} onClick={()=>useAsset(asset)}><img src={asset.url} alt={asset.alt||asset.name}/><span>{asset.name}</span></button>)}</div>{assets.length===0&&<p>No images yet. Upload one to get started.</p>}</div></div>}
     </div>
   </div>;
 }
