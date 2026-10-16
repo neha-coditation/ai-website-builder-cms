@@ -152,3 +152,11 @@
 .builder-component-row>button:first-child{display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:1;min-width:0;padding:9px;border:1px solid #33445e;border-radius:7px;text-align:left}
 .builder-component-row small{color:#a1b0cc;font-size:11px}
 .builder-component-row>button:last-child{padding:7px;border-radius:6px}
+
+
+/* Phase 30: Elements library with searchable Sections */
+.builder-element-search{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#101a2b;border:1px solid #394a66;border-radius:8px;margin:6px 0 10px}
+.builder-element-search input{min-width:0;width:100%;background:transparent;border:0;outline:0;color:#e8f0ff;font-size:12px}
+.builder-element-categories{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 12px}
+.builder-element-categories button{border:1px solid #36445d;background:#172238;color:#afbed6;border-radius:6px;padding:6px 9px;font-size:11px}
+.builder-element-categories button.active{border-color:#5780ef;background:#263f76;color:#fff}
