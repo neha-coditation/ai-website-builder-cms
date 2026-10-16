@@ -15,6 +15,7 @@ model Site {
   faviconUrl  String          @default("")
   defaultTitle String         @default("")
   globalDesign Json           @default("{}")
+  assets      SiteAsset[]
   pages       Page[]
   collections CmsCollection[]
   createdAt   DateTime        @default(now())
@@ -56,4 +57,15 @@ model CmsEntry {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   @@unique([collectionId, slug])
+}
+
+model SiteAsset {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  alt       String   @default("")
+  createdAt DateTime @default(now())
+  @@index([siteId, createdAt])
 }
