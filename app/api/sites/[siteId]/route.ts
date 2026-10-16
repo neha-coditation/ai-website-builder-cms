@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../../../lib/prisma';
 
 const globalDesignSchema = z.object({
@@ -32,7 +33,7 @@ export async function PATCH(request: Request, { params }: Context) {
   const { siteId } = await params;
   const parsed = schema.safeParse(await request.json().catch(()=>null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const exists = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true } });
+  const exists = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, globalDesign: true } });
   if (!exists) return NextResponse.json({ error: 'Website not found' }, { status: 404 });
-  return NextResponse.json(await prisma.site.update({ where: { id: siteId }, data: parsed.data }));
+  return NextResponse.json(await prisma.site.update({ where: { id: siteId }, data: { ...parsed.data, globalDesign: { ...(exists.globalDesign && typeof exists.globalDesign==='object' && !Array.isArray(exists.globalDesign) ? exists.globalDesign as Record<string,unknown> : {}), ...parsed.data.globalDesign } as Prisma.InputJsonValue } }));
 }
