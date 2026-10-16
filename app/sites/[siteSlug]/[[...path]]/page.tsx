@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SiteTabs from '../../../components/SiteTabs';
+import SiteForm from '../../../components/SiteForm';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '../../../../lib/prisma';
@@ -49,15 +50,15 @@ function blockStyle(b:Block,design:Design):CSSProperties{
   }
   return {...fromClass,...Object.fromEntries(Object.entries({color:s.color||design.bodyTextColor,backgroundColor:s.background||(b.type==='button'?design.primaryColor:undefined),fontSize:s.fontSize? s.fontSize+'px':undefined,padding:s.padding===undefined?undefined:s.padding+'px',borderRadius:s.radius===undefined?undefined:s.radius+'px',textAlign:s.align,maxWidth:s.maxWidth?s.maxWidth+'px':undefined,marginTop:s.marginTop===undefined?undefined:s.marginTop+'px',marginBottom:s.marginBottom===undefined?undefined:s.marginBottom+'px',width:s.width==='full'?'100%':s.width==='half'?'50%':undefined}).filter(([,value])=>value!==undefined))};
 }
-function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];design:Design;depth?:number}){
+function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0}: {block:Block;blocks:Block[];design:Design;siteId:string;pageSlug:string;successMessage:string;depth?:number}){
   const style=blockStyle(block,design);
   const attrs={id:block.htmlId||undefined,className:block.classNames||undefined};
   if(block.type==='heading')return <h2 {...attrs} style={style}>{block.text}</h2>;
   if(block.type==='paragraph')return <p {...attrs} style={style}>{block.text}</p>;
   if(block.type==='button'){const href=block.href||'';const safe=href.startsWith('/')&&!href.startsWith('//')||/^https:\/\//.test(href);return safe?<a {...attrs} href={href} rel={href.startsWith('https://')?'noopener noreferrer':undefined} className={['published-button',block.classNames].filter(Boolean).join(' ')} style={style}>{block.text}</a>:<span {...attrs} className={['published-button',block.classNames].filter(Boolean).join(' ')} style={style}>{block.text}</span>;}
   if(block.type==='image')return block.text&&(/^(https:\/\/|\/uploads\/)/.test(block.text))?<img {...attrs} src={block.text} alt={block.alt||''} style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
-  if(block.type==='form')return <form {...attrs} style={style} action="#" onSubmit={undefined}><strong>{block.text||'Contact'}</strong><label>Name<input name="name" required/></label><label>Email<input name="email" type="email" required/></label><label>Message<textarea name="message"/></label><button type="submit">Submit</button><p>Form delivery is not configured.</p></form>;
-  if(block.type==='search')return <form {...attrs} style={style} role="search" action="#" method="get"><input type="search" name="q" placeholder={block.text||'Search'}/><button type="submit">Search</button></form>;
+  if(block.type==='form')return <SiteForm siteId={siteId} formId={block.id} pageSlug={pageSlug} title={block.text||'Contact'} successMessage={successMessage} className={attrs.className} style={style}/>;
+    if(block.type==='search')return <form {...attrs} style={style} role="search" action="#" method="get"><input type="search" name="q" placeholder={block.text||'Search'}/><button type="submit">Search</button></form>;
   if(block.type==='dropdown')return <details {...attrs} style={style}><summary>{block.text||'Menu'}</summary><div>Dropdown content</div></details>;
   if(block.type==='tabs'){const labels=(block.text||'Overview|Details').split('|').map(t=>t.trim()).filter(Boolean);return <SiteTabs id={'site-tabs-'+block.id} labels={labels} contents={block.tabContents} className={attrs.className} style={style}/>;}
   if(block.type==='input')return <input {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
@@ -70,7 +71,7 @@ function Element({block,blocks,design,depth=0}: {block:Block;blocks:Block[];desi
   if(block.type==='embed')return <pre {...attrs} style={{...style,whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{block.text}</pre>;
   if(block.type==='container'&&depth<4){
     const children=blocks.filter(b=>b.parentId===block.id);
-    return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} depth={depth+1}/>)}</div>;
+    return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} siteId={siteId} pageSlug={pageSlug} successMessage={successMessage} depth={depth+1}/>)}</div>;
   }
   return null;
 }
@@ -80,10 +81,13 @@ export default async function PublicPage({params}:Params){
   if(!data)notFound();
   const {site,page,content,design}=data;
   const blocks=Array.isArray(content.blocks)?content.blocks:[];
+  const cfg=site.siteConfig&&typeof site.siteConfig==='object'&&!Array.isArray(site.siteConfig)?site.siteConfig as Record<string,unknown>:{};
+  const forms=cfg.forms&&typeof cfg.forms==='object'&&!Array.isArray(cfg.forms)?cfg.forms as Record<string,unknown>:{};
+  const successMessage=typeof forms.successMessage==='string'?forms.successMessage:'Thanks! Your submission has been received.';
   const ids=new Set(blocks.filter(b=>b.type==='container').map(b=>b.id));
   return <div className="published-site" style={{background:design.pageBackground||'#fff',color:design.bodyTextColor||'#18202f',fontFamily:design.fontFamily||'system-ui'}}>
     <header className="published-header" style={{background:design.headerBackground||undefined,color:design.headerTextColor||undefined}}><strong>{design.logoText||site.name}</strong><nav aria-label="Site pages">{site.pages.map(p=><Link key={p.id} href={p.slug==='home'?'/sites/'+site.slug:'/sites/'+site.slug+'/'+p.slug} aria-current={p.id===page.id?'page':undefined}>{p.title}</Link>)}</nav></header>
-    <main className="published-main">{blocks.filter(b=>!b.parentId||!ids.has(b.parentId)).map(b=><Element key={b.id} block={b} blocks={blocks} design={design}/>)}</main>
+    <main className="published-main">{blocks.filter(b=>!b.parentId||!ids.has(b.parentId)).map(b=><Element key={b.id} block={b} blocks={blocks} design={design} siteId={site.id} pageSlug={page.slug} successMessage={successMessage}/>)}</main>
     <footer className="published-footer" style={{background:design.footerBackground||undefined,color:design.footerTextColor||undefined}}>{design.footerText||'© '+new Date().getFullYear()+' '+site.name}</footer>
   </div>;
 }
