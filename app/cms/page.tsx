@@ -10,7 +10,7 @@ const slugify=(value:string)=>value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'
 async function api<T>(path:string, init?:RequestInit):Promise<T>{
  const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',...init?.headers}});
  const payload=await response.json().catch(()=>null);
- if(!response.ok)throw new Error(payload?.error?.message || (typeof payload?.error==='string'?payload.error:'Request failed: '+response.status));
+ if(!response.ok)throw new Error(typeof payload?.error==='string'?payload.error:'Request failed: '+response.status);
  return payload as T;
 }
 export default function CmsPage(){
