@@ -16,7 +16,7 @@ function getDesign(v:unknown):Design {return obj(v) as Design;}
 async function load({siteSlug,path}: {siteSlug:string;path?:string[]}) {
   if(path && (path.length!==1 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(path[0])))return null;
   const slug=path?.[0]||'home';
-  const site=await prisma.site.findUnique({where:{slug:siteSlug},select:{id:true,name:true,slug:true,description:true,defaultTitle:true,globalDesign:true,pages:{select:{id:true,title:true,slug:true,content:true},orderBy:{createdAt:'asc'}}}});
+  const site=await prisma.site.findUnique({where:{slug:siteSlug},select:{id:true,name:true,slug:true,description:true,defaultTitle:true,globalDesign:true,siteConfig:true,pages:{select:{id:true,title:true,slug:true,content:true},orderBy:{createdAt:'asc'}}}});
   if(!site)return null;
   const page=site.pages.find(p=>p.slug===slug);
   if(!page)return null;
@@ -28,7 +28,13 @@ export async function generateMetadata({params}:Params):Promise<Metadata>{
   if(!data)return {title:'Page not found',robots:{index:false,follow:false}};
   const {site,page,content}=data;
   const seo=content.seo||{};
-  return {title:seo.title||page.title||site.defaultTitle||site.name,description:seo.description||site.description||undefined,robots:{index:false,follow:false},openGraph:{title:seo.title||page.title,description:seo.description||site.description||undefined,images:seo.ogImage?[seo.ogImage]:undefined}};
+  const config=obj(site.siteConfig);const seoConfig=obj(config.seo);
+  const suffix=typeof seoConfig.titleSuffix==='string'?seoConfig.titleSuffix:'';
+  const title=(seo.title||page.title||site.defaultTitle||site.name)+suffix;
+  const description=seo.description||(typeof seoConfig.defaultDescription==='string'?seoConfig.defaultDescription:'')||site.description||undefined;
+  const image=seo.ogImage||(typeof seoConfig.defaultOgImage==='string'?seoConfig.defaultOgImage:'');
+  // Preview routes are intentionally noindex until an explicit production publishing flow exists.
+  return {title,description,robots:{index:false,follow:false},openGraph:{title,description,images:image?[image]:undefined}};
 }
 function blockStyle(b:Block,design:Design):CSSProperties{
   const s=b.style||{};

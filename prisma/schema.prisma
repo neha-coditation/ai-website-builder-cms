@@ -15,6 +15,7 @@ model Site {
   faviconUrl  String          @default("")
   defaultTitle String         @default("")
   globalDesign Json           @default("{}")
+  siteConfig  Json           @default("{}")
   assets      SiteAsset[]
   components  SiteComponent[]
   pages       Page[]
