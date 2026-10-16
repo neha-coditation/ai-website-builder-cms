@@ -10,7 +10,7 @@ const sections=[
  {label:'Forms',path:'/forms',icon:Inbox,detail:'Submissions inbox and CSV export',state:'MVP'},
  {label:'SEO',path:'/settings',icon:Search,detail:'SEO defaults and indexing configuration',state:'Partial'},
  {label:'Assets',path:'/designer',icon:ImageIcon,detail:'Media library in the Designer',state:'Partial'},
- {label:'Publishing',path:'/designer',icon:UploadCloud,detail:'Site preview and publishing workflow',state:'Partial'},
+ {label:'Publishing',path:'/publishing',icon:UploadCloud,detail:'Site preview and publishing workflow',state:'Partial'},
  {label:'Site settings',path:'/settings',icon:Settings2,detail:'General, forms, SEO, design and advanced settings',state:'Available'},
 ] as const;
 function Overview(){
