@@ -11,6 +11,9 @@ model Site {
   id          String          @id @default(cuid())
   name        String
   slug        String          @unique
+  description String          @default("")
+  faviconUrl  String          @default("")
+  defaultTitle String         @default("")
   pages       Page[]
   collections CmsCollection[]
   createdAt   DateTime        @default(now())
