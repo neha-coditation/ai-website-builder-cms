@@ -2,7 +2,7 @@ import Link from 'next/link';
 import SiteTabs from '../../../components/SiteTabs';
 import SiteForm from '../../../components/SiteForm';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { prisma } from '../../../../lib/prisma';
 import type { CSSProperties } from 'react';
 
@@ -78,7 +78,16 @@ function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0}: {
 export default async function PublicPage({params}:Params){
   const values=await params;
   const data=await load(values);
-  if(!data)notFound();
+  if(!data){
+    // Redirect only within this site's preview namespace; never redirect across sites.
+    const site=await prisma.site.findUnique({where:{slug:values.siteSlug},select:{siteConfig:true}});
+    const config=obj(site?.siteConfig);const seo=obj(config.seo);
+    const rules=Array.isArray(seo.redirects)?seo.redirects:[];
+    const from='/'+(values.path?.join('/')||'');
+    const rule=rules.find(r=>{const v=obj(r);return v.from===from && typeof v.to==='string' && /^\\/[a-z0-9/-]*$/.test(v.to) && v.to!==from;});
+    if(rule){const item=obj(rule);const dest=String(item.to);const target='/sites/'+values.siteSlug+(dest==='/'?'':dest);if(item.permanent===false)redirect(target);permanentRedirect(target);}
+    notFound();
+  }
   const {site,page,content,design}=data;
   const blocks=Array.isArray(content.blocks)?content.blocks:[];
   const cfg=site.siteConfig&&typeof site.siteConfig==='object'&&!Array.isArray(site.siteConfig)?site.siteConfig as Record<string,unknown>:{};
