@@ -4,7 +4,7 @@ import {z} from 'zod';
 const schema=z.object({
   sourceUrl:z.string().url().max(2048),
   html:z.string().min(1).max(2_000_000),
-});
+}).strict();
 function unique(values:string[]){return [...new Set(values)].slice(0,500);}
 function attributes(html:string,tag:string,attr:string){
   const matches:string[]=[];
@@ -26,6 +26,7 @@ export async function POST(request:Request){
   if(!parsed.success)return NextResponse.json({error:'Provide a valid HTTPS Webflow URL and exported HTML (up to 2 MB).'},{status:400});
   const {sourceUrl,html}=parsed.data;
   const url=new URL(sourceUrl);
+  if(url.username||url.password)return NextResponse.json({error:'Credentials in URLs are not permitted'},{status:400});
   if(url.protocol!=='https:')return NextResponse.json({error:'Source URL must use HTTPS.'},{status:400});
   const title=html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim()||'';
   const description=html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)/i)?.[1]||'';
