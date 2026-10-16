@@ -160,3 +160,14 @@
 .builder-element-categories{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 12px}
 .builder-element-categories button{border:1px solid #36445d;background:#172238;color:#afbed6;border-radius:6px;padding:6px 9px;font-size:11px}
 .builder-element-categories button.active{border-color:#5780ef;background:#263f76;color:#fff}
+
+
+/* Phase 31: compact Framer-inspired element cards and component controls */
+.builder-component-row{gap:5px}
+.builder-component-actions{display:flex;align-items:center;gap:2px}
+.builder-component-actions button{display:flex;align-items:center;justify-content:center;width:27px;height:27px;border:0;border-radius:6px;background:transparent;color:#a6b9d7}
+.builder-component-actions button:hover{background:#283b5d;color:#fff}
+.builder-section-preset{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px}
+.builder-section-preset>span{min-width:0}
+.builder-element-grid button{position:relative;min-width:0;gap:7px;transition:background .15s,border-color .15s}
+.builder-element-grid button:hover{border-color:#6485d9;background:#202d46}
