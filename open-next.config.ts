@@ -1,4 +1,1 @@
-
-import { defineCloudflareConfig } from "@opennextjs/cloudflare";
-
-export default defineCloudflareConfig();
+const adapter = new PrismaNeon({ connectionString });
