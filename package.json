@@ -15,7 +15,8 @@
     "test:designer": "node --test scripts/test-designer-persistence.cjs",
     "test:persistence": "node scripts/verify-persistence.cjs",
     "capture:animations": "node scripts/capture-published-animations.mjs",
-    "compare:animations": "node scripts/compare-animation-captures.mjs"
+    "compare:animations": "node scripts/compare-animation-captures.mjs",
+    "audit:animations": "node scripts/compare-published-to-snapshot.mjs"
   },
   "dependencies": {
     "@neon/config": "^1.9.2",
