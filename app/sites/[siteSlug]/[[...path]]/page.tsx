@@ -61,7 +61,10 @@ function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0,anc
   if(block.type==='image')return block.text&&(/^(https:\/\/|\/uploads\/)/.test(block.text))?<img {...attrs} src={block.text} alt={block.alt||''} style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
   if(block.type==='form')return <SiteForm siteId={siteId} formId={block.id} pageSlug={pageSlug} title={block.text||'Contact'} successMessage={successMessage} className={attrs.className} style={style}/>;
     if(block.type==='search')return <form {...attrs} style={style} role="search" action="#" method="get"><input type="search" name="q" placeholder={block.text||'Search'}/><button type="submit">Search</button></form>;
-  if(block.type==='dropdown')return <details {...attrs} style={style}><summary>{block.text||'Menu'}</summary><div>Dropdown content</div></details>;
+  if(block.type==='dropdown'){
+    const children=blocks.filter(child=>child.parentId===block.id);
+    return <details {...attrs} style={style}><summary>{block.text||'Menu'}</summary><div>{children.length?children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} siteId={siteId} pageSlug={pageSlug} successMessage={successMessage} depth={depth+1} ancestors={[...ancestors,block.id]} cmsEntries={cmsEntries}/>):<p>No dropdown items configured.</p>}</div></details>;
+  }
   if(block.type==='tabs'){const labels=(block.text||'Overview|Details').split('|').map(t=>t.trim()).filter(Boolean);return <SiteTabs id={'site-tabs-'+block.id} labels={labels} contents={block.tabContents} className={attrs.className} style={style}/>;}
   if(block.type==='input')return <input {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
   if(block.type==='textarea')return <textarea {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
@@ -105,7 +108,7 @@ export default async function PublicPage({params}:Params){
   const cfg=site.siteConfig&&typeof site.siteConfig==='object'&&!Array.isArray(site.siteConfig)?site.siteConfig as Record<string,unknown>:{};
   const forms=cfg.forms&&typeof cfg.forms==='object'&&!Array.isArray(cfg.forms)?cfg.forms as Record<string,unknown>:{};
   const successMessage=typeof forms.successMessage==='string'?forms.successMessage:'Thanks! Your submission has been received.';
-  const ids=new Set(blocks.filter(b=>b.type==='container').map(b=>b.id));
+  const ids=new Set(blocks.filter(b=>b.type==='container'||b.type==='dropdown').map(b=>b.id));
   const collectionIds=[...new Set(blocks.filter(b=>b.type==='cms-list'&&b.collectionId).map(b=>b.collectionId as string))];
   const collections=collectionIds.length?await prisma.cmsCollection.findMany({where:{siteId:site.id,id:{in:collectionIds}},select:{id:true}}):[];
   const allowedIds=collections.map(c=>c.id);
