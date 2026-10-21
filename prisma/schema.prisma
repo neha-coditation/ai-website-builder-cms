@@ -97,3 +97,11 @@ model FormSubmission {
   @@index([siteId, createdAt])
   @@index([siteId, formId, createdAt])
 }
+
+model MigrationCredential {
+  id String @id
+  ciphertext String
+  iv String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
