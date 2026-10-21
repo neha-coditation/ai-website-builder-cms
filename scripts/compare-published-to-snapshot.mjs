@@ -26,8 +26,8 @@ try{
  const html=await live.content();
  await snapshot.route('**/*',route=>route.request().resourceType()==='script'?route.abort():route.continue());
  // Remove executable and embedded content before parsing the snapshot.
- const safeHtml=html.replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script\\s*>/gi,'').replace(/<iframe\\b[^>]*>[\\s\\S]*?<\\/iframe\\s*>/gi,'').replace(/<form\\b[^>]*>[\\s\\S]*?<\\/form\\s*>/gi,'');
- await snapshot.setContent('<!doctype html><meta http-equiv="Content-Security-Policy" content="script-src \\'none\\'; object-src \\'none\\'"><base href="'+source.href+'">'+safeHtml,{waitUntil:'domcontentloaded'});
+ const safeHtml=html.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'').replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,'').replace(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi,'');
+ await snapshot.setContent(`<!doctype html><meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'"><base href="${source.href}">${safeHtml}`,{waitUntil:'domcontentloaded'});
  const captures=[['desktop',1440,900],['tablet',768,1024],['mobile',390,844]];
  for(const [label,width,height] of captures){
   await Promise.all([live,snapshot].map(p=>p.setViewportSize({width,height})));
