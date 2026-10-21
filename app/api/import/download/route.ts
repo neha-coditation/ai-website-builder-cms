@@ -1,13 +1,100 @@
-import { NextRequest, NextResponse } from "next/server";
-import JSZip from "jszip";
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-export const runtime="nodejs";
-export const dynamic="force-dynamic";
-const MAX_HTML=1_500_000;
-const MAX_ASSET=2_000_000;
-function publicIp(ip:string){if(isIP(ip)===4){const [a,b]=ip.split(".").map(Number);return !(a===0||a===10||a===127||a>=224||a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&b===168||a===100&&b>=64&&b<=127||a===198&&[18,19].includes(b))}if(isIP(ip)===6){const s=ip.toLowerCase();return !(s==="::"||s==="::1"||s.startsWith("fc")||s.startsWith("fd")||/^fe[89ab]/.test(s)||s.startsWith("::ffff:"))}return false}
-async function checkUrl(input:string){const u=new URL(input);if(!["http:","https:"].includes(u.protocol)||u.username||u.password||u.port||isIP(u.hostname)||u.hostname==="localhost"||u.hostname.endsWith(".local")||u.hostname.endsWith(".internal"))throw Error("Only public HTTP(S) domains are allowed.");const ips=await lookup(u.hostname,{all:true});if(!ips.length||ips.some(a=>!publicIp(a.address)))throw Error("Private or reserved network addresses are blocked.");return u}
-async function fetchSafe(url:string,limit:number){let current=(await checkUrl(url)).toString();for(let i=0;i<4;i++){const response=await fetch(current,{redirect:"manual",signal:AbortSignal.timeout(12000),headers:{"user-agent":"MigrationStudio/0.1 (authorized snapshot)","accept":"text/html,*/*"}});if([301,302,303,307,308].includes(response.status)){const location=response.headers.get("location");if(!location)throw Error("Invalid redirect.");current=(await checkUrl(new URL(location,current).toString())).toString();continue}if(!response.ok)throw Error("HTTP "+response.status);if(Number(response.headers.get("content-length")||0)>limit)throw Error("Resource too large.");const reader=response.body?.getReader();if(!reader)throw Error("Empty response.");const chunks:Uint8Array[]=[];let size=0;while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>limit){await reader.cancel();throw Error("Resource too large.")}chunks.push(part.value)}const data=new Uint8Array(size);let at=0;for(const c of chunks){data.set(c,at);at+=c.length}return {url:current,contentType:response.headers.get("content-type")||"",data}}throw Error("Too many redirects.")}
-function escapeHtml(v:string){return v.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-export async function POST(req:NextRequest){try{const body=await req.json();if(typeof body?.url!=="string"||body.url.length>2048)return NextResponse.json({error:"Enter a public website URL."},{status:400});const source=await fetchSafe(body.url,MAX_HTML);if(!source.contentType.toLowerCase().includes("text/html"))throw Error("Source is not an HTML page.");const html=new TextDecoder().decode(source.data);const zip=new JSZip();const assetFolder=zip.folder("assets")!;const manifest:{source:string;downloadedAt:string;assets:{url:string;path:string;status:string}[];limitations:string[]}={source:source.url,downloadedAt:new Date().toISOString(),assets:[],limitations:["Single published HTML page snapshot, not a complete website migration.","JavaScript-rendered content, CMS data, interactions and linked pages may not be included.","Assets are best-effort and limited to 15 files of up to 2 MB each."]};let rewritten=html;const candidates=[...html.matchAll(/<(?:img|script|link)\b[^>]*(?:src|href)\s*=\s*(["'])(.*?)\1/gi)].map(m=>m[2]).filter(x=>!x.startsWith("data:")&&!x.startsWith("#")&&!x.startsWith("javascript:"));let count=0;for(const raw of [...new Set(candidates)]){if(count>=15)break;try{const resolved=new URL(raw,source.url);if(!["http:","https:"].includes(resolved.protocol))continue;const extension=resolved.pathname.split(".").pop()?.toLowerCase()||"";if(!["css","js","png","jpg","jpeg","webp","gif","svg","ico","woff","woff2"].includes(extension))continue;const asset=await fetchSafe(resolved.toString(),MAX_ASSET);const path="assets/file-"+String(++count).padStart(3,"0")+"."+extension;assetFolder.file(path.split("/").pop()!,asset.data);manifest.assets.push({url:asset.url,path,status:"downloaded"});rewritten=rewritten.split(raw).join(path)}catch{manifest.assets.push({url:raw,path:"",status:"skipped"})}}zip.file("index.html",rewritten);zip.file("manifest.json",JSON.stringify(manifest,null,2));zip.file("README.txt","Published page snapshot from "+source.url+"\nThis is not a full site migration. Check scripts, forms, images and legal permissions before reuse.\n");const result=await zip.generateAsync({type:"uint8array",compression:"DEFLATE",compressionOptions:{level:6}});const name=(new URL(source.url).hostname.replace(/[^a-z0-9.-]/gi,"-")||"website")+"-snapshot.zip";return new NextResponse(Buffer.from(result),{headers:{"content-type":"application/zip","content-disposition":'attachment; filename="'+escapeHtml(name)+'"',"cache-control":"no-store","content-length":String(result.byteLength)}})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Could not create ZIP."},{status:400})}}
+import { NextRequest, NextResponse } from 'next/server';
+import JSZip from 'jszip';
+import { fetchSafe } from '../../../lib/safe-fetch';
+import { webflowExport } from '../../../lib/webflow-export';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 180;
+const limits = { pages: 20, depth: 3, assets: 80, htmlBytes: 1_500_000, assetBytes: 2_000_000, totalBytes: 30_000_000, milliseconds: 120_000 };
+function resolve(raw: string, base: string) { try { const u = new URL(raw.replace(/&amp;/g, '&'), base); if (!['https:', 'http:'].includes(u.protocol) || u.username || u.password) return null; u.hash=''; return u; } catch { return null; } }
+export async function POST(req: NextRequest) {
+  try {
+    const text = await req.text();
+    if (text.length > 10000) throw Error('Request too large.');
+    const body = JSON.parse(text);
+    if (typeof body.url !== 'string' || body.url.length > 2048) throw Error('Enter a public website URL.');
+    const token = typeof body.token === 'string' ? body.token : '';
+    const siteId = typeof body.siteId === 'string' ? body.siteId : '';
+    if (!!token !== !!siteId) throw Error('Provide both Webflow site ID and token, or leave both empty.');
+    const deadline = Date.now() + limits.milliseconds;
+    const zip = new JSZip();
+    const limitations = ['Only accessible server-returned HTML is captured; JavaScript is not executed.', 'Scripts and animation resources are best-effort; forms, search, authentication, backend integrations and Designer editability are not recreated.', 'API data retains its original structure, including CMS fields and available page SEO. Missing scopes, pagination caps and crawl omissions are recorded.', 'Only same-origin links without query strings are crawled. No sitemap-only or unlinked pages are guaranteed.'];
+    const entries: {url: string; path?: string; status: string; reason?: string}[] = [];
+    const api = token ? await webflowExport(siteId, token, deadline) : null;
+    if (api) { zip.file('webflow/data.json', JSON.stringify(api, null, 2)); limitations.push(...api.notes); }
+    const first = await fetchSafe(body.url, limits.htmlBytes);
+    const origin = new URL(first.url).origin;
+    const queue = [{url: first.url, depth: 0}];
+    const seen = new Set<string>();
+    const files = new Map<string, {path: string; data: Uint8Array; text?: string}>();
+    let total = 0, pages = 0, assets = 0;
+    const assetQueue: string[] = [];
+    function discover(html: string, base: string) {
+      for (const m of html.matchAll(/\b(?:src|href|poster)\s*=\s*["']([^"']+)["']/gi)) {
+        const u = resolve(m[1], base);
+        if (u && /\.(css|js|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|mp4|webm)(?:$|\?)/i.test(u.href) && assetQueue.length < 400) assetQueue.push(u.href);
+      }
+      for (const m of html.matchAll(/(?:url\(\s*["']?|@import\s+["'])([^\s"')]+)|\bsrcset\s*=\s*["']([^"']+)["']/gi)) {
+        for (const raw of m[2] ? m[2].split(',').map(v=>v.trim().split(/\s+/)[0]) : [m[1]]) { const u=resolve(raw,base); if(u && assetQueue.length<400) assetQueue.push(u.href); }
+      }
+    }
+    while (queue.length && pages < limits.pages && Date.now() < deadline && total < limits.totalBytes) {
+      const item = queue.shift()!;
+      if (seen.has(item.url)) continue;
+      seen.add(item.url);
+      try {
+        const r = item.url===first.url ? first : await fetchSafe(item.url, limits.htmlBytes);
+        if (new URL(r.url).origin !== origin || !r.contentType.includes('text/html')) throw Error('Outside origin or not HTML.');
+        if (total+r.data.length>limits.totalBytes) throw Error('Total byte limit.');
+        const html=new TextDecoder().decode(r.data);
+        const path=pages++===0?'index.html':`pages/page-${pages}.html`;
+        files.set(item.url,{path,data:r.data,text:html}); total+=r.data.length;
+        entries.push({url:item.url,path,status:'downloaded'});
+        discover(html,r.url);
+        for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
+          const u=resolve(m[1],r.url);
+          if(u && u.origin===origin && !u.search && !seen.has(u.href) && queue.length<200) {
+            if(item.depth<limits.depth) queue.push({url:u.href,depth:item.depth+1});
+            else entries.push({url:u.href,status:'skipped',reason:'Depth limit'});
+          }
+        }
+      } catch { entries.push({url:item.url,status:'skipped',reason:'Unavailable, blocked, timed out or resource limit'}); }
+    }
+    for (const url of assetQueue) {
+      if(files.has(url)) continue;
+      if(assets>=limits.assets || Date.now()>=deadline || total>=limits.totalBytes) break;
+      // Count attempts too, so failures cannot create an unbounded export.
+      assets++;
+      try {
+        const r=await fetchSafe(url,limits.assetBytes);
+        if(total+r.data.length>limits.totalBytes) throw Error();
+        const ext=new URL(url).pathname.match(/\.([a-z0-9]{1,5})$/i)?.[1]||'bin';
+        const path=`assets/file-${assets}.${ext}`;
+        const css=r.contentType.includes('text/css')||ext==='css';
+        const content=css?new TextDecoder().decode(r.data):undefined;
+        files.set(url,{path,data:r.data,text:content}); total+=r.data.length;
+        entries.push({url,path,status:'downloaded'});
+        if(content) discover(content,r.url);
+      } catch { entries.push({url,status:'skipped',reason:'Unavailable, blocked, timed out or resource limit'}); }
+    }
+    if(!pages) throw Error('No accessible HTML pages were exported.');
+    for (const [base,file] of files) {
+      let content=file.text;
+      if(content!==undefined) {
+        // Resolve each reference relative to its original document, preserving anchors.
+        const rewrite=(raw:string)=>{ const u=resolve(raw,base); const target=u?files.get(u.href):undefined; if(!u)return raw; const hash=raw.includes('#')?raw.slice(raw.indexOf('#')):''; return target?(file.path.includes('/')?'../':'')+target.path+hash:u.href+hash; };
+        content=content.replace(/(\b(?:src|href|poster)\s*=\s*["'])([^"']+)(["'])/gi,(_,a,b,c)=>a+rewrite(b)+c)
+          .replace(/(url\(\s*["']?)([^\s"')]+)(["']?\s*\))/gi,(_,a,b,c)=>a+rewrite(b)+c)
+          .replace(/(@import\s+["'])([^"']+)(["'])/gi,(_,a,b,c)=>a+rewrite(b)+c)
+          .replace(/(\bsrcset\s*=\s*["'])([^"']+)(["'])/gi,(_,a,b,c)=>a+b.split(',').map((v:string)=>v.trim().replace(/^\S+/,rewrite)).join(', ')+c)
+          .replace(/<base\b[^>]*>/gi,'');
+      }
+      zip.file(file.path,content??file.data);
+    }
+    const remaining=[...queue.map(i=>i.url),...assetQueue.filter(u=>!files.has(u))];
+    zip.file('manifest.json',JSON.stringify({source:first.url,exportedAt:new Date().toISOString(),limits,pages,assetAttempts:assets,resourceBytes:total,apiIncluded:!!api,entries,omittedCandidates:[...new Set(remaining)],limitations},null,2));
+    zip.file('README.txt',limitations.join('\n')+'\nServe this folder through a local HTTP server. Review manifest.json before reuse. API credentials are not included.');
+    const result=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+    return new NextResponse(Buffer.from(result),{headers:{'content-type':'application/zip','content-disposition':`attachment; filename="${new URL(first.url).hostname}-combined.zip"`,'cache-control':'no-store'}});
+  } catch { return NextResponse.json({error:'Export failed. Check the public URL, Webflow site ID/read permissions, and retry. Credentials are never returned.'},{status:400,headers:{'cache-control':'no-store'}}); }
+}
