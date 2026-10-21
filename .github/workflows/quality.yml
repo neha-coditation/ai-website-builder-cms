@@ -1,7 +1,7 @@
 name: Studio CMS quality checks
 on:
   push:
-    branches: ['phase-*', 'fix/integrate-shared-renderer-main', main]
+    branches: ['phase-*', 'fix/integrate-shared-renderer-main', 'feature/renderer-hardening-20261021', main]
   pull_request:
 jobs:
   build:
