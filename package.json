@@ -14,7 +14,8 @@
     "test:cloudflare-env": "node --test scripts/check-cloudflare-env.test.cjs",
     "test:designer": "node --test scripts/test-designer-persistence.cjs",
     "test:persistence": "node scripts/verify-persistence.cjs",
-    "capture:animations": "node scripts/capture-published-animations.mjs"
+    "capture:animations": "node scripts/capture-published-animations.mjs",
+    "compare:animations": "node scripts/compare-animation-captures.mjs"
   },
   "dependencies": {
     "@neon/config": "^1.9.2",
