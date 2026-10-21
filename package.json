@@ -28,7 +28,8 @@
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.20.12",
@@ -36,6 +37,7 @@
     "@types/react": "^19.0.0",
     "prisma": "^6.19.3",
     "typescript": "^5.7.0",
-    "wrangler": "^4.151.1"
+    "wrangler": "^4.151.1",
+    "@types/jszip": "^3.4.1"
   }
 }
