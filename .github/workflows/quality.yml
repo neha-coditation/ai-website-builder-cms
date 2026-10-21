@@ -22,5 +22,6 @@ jobs:
       - run: npx prisma validate
       - run: npx prisma generate
       - run: npm run test:cloudflare-env
+      - run: node --test scripts/test-public-renderer.cjs
       - run: npm run typecheck
       - run: npm run build
