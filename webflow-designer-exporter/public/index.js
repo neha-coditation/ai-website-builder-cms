@@ -5,9 +5,11 @@ async function attempt(obj,method,...args){try{return typeof obj?.[method]==='fu
 function safe(value){try{return JSON.parse(JSON.stringify(value));}catch{return null;}}
 async function exportPage(){
  const siteId=document.getElementById('siteId').value.trim();
- const pageId=document.getElementById('pageId').value.trim();
- if(!/^[a-f0-9]{24}$/i.test(siteId)||!pageId){text('Enter the selected Webflow site ID and current page ID.');return;}
+ if(!/^[a-f0-9]{24}$/i.test(siteId)){text('Enter a valid Webflow site ID.');return;}
  if(typeof webflow==='undefined'){text('Open this app inside the Webflow Designer.');return;}
+ const currentPage=await webflow.getCurrentPage();
+ const pageId=currentPage?.id;
+ if(typeof pageId!=='string'||!pageId){text('Could not identify the current Designer page. Open a static page and retry.');return;}
  text('Reading current Designer page...');
  const elements=await webflow.getAllElements();
  const serialized=[];
