@@ -29,3 +29,15 @@ test('page save validates breakpoint overrides and dropdown state',()=>{
  assert.match(save,/breakpointOverrides/);
  assert.match(save,/dropdownOpen: z\.boolean\(\)\.optional\(\)/);
 });
+
+const designer=read('app/designer/page.tsx');
+test('Designer exposes dropdown trigger and initial state settings',()=>{
+ assert.match(designer,/builder-dropdown-label/);
+ assert.match(designer,/dropdownOpen:e\.target\.checked/);
+ assert.match(designer,/parentId:current\.id/);
+ assert.match(designer,/target\.type!=='dropdown'/);
+});
+test('Designer dropdown preview renders nested content instead of placeholder',()=>{
+ assert.match(designer,/site\.blocks\.filter\(child=>child\.parentId===b\.id\)\.map/);
+ assert.doesNotMatch(designer,/<div>Dropdown content<\/div>/);
+});
