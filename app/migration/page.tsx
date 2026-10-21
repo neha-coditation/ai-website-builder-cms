@@ -1,4 +1,5 @@
 'use client';
+import {readJsonResponse} from '../../lib/read-json-response';
 import {useState} from 'react';
 type Inventory={sourceUrl:string;title:string;description:string;canonical:string;webflow:boolean;headings:number;forms:number;links:string[];images:string[];stylesheets:string[];scripts:string[];notes:string[]};
 export default function MigrationPage(){
@@ -7,7 +8,7 @@ export default function MigrationPage(){
   event.preventDefault();setError('');setReport(null);setBusy(true);
   try{
    const response=await fetch('/api/migration/inspect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceUrl:url,html})});
-   const data=await response.json();
+   const data=await readJsonResponse(response);
    if(!response.ok)throw new Error(typeof data.error==='string'?data.error:'Unable to inspect HTML');
    setReport(data as Inventory);
   }catch(e){setError(e instanceof Error?e.message:'Inspection failed');}finally{setBusy(false);}

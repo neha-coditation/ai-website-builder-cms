@@ -1,11 +1,12 @@
 import {NextResponse} from 'next/server';
-import {prisma} from '../../../../../../../lib/prisma';
+import {getPrisma} from '../../../../../../../lib/prisma';
 import {z} from 'zod';
 
 type Context={params:Promise<{siteId:string;submissionId:string}>};
 const schema=z.object({status:z.enum(['new','read','archived'])});
 
 export async function PATCH(request:Request,{params}:Context){
+ const prisma=getPrisma();
  const {siteId,submissionId}=await params;
  const parsed=schema.safeParse(await request.json().catch(()=>null));
  if(!parsed.success)return NextResponse.json({error:'Invalid status'},{status:400});
