@@ -1,0 +1,1 @@
+CREATE TABLE "MigrationCredential" ("id" TEXT NOT NULL, "ciphertext" TEXT NOT NULL, "iv" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "MigrationCredential_pkey" PRIMARY KEY ("id"));
