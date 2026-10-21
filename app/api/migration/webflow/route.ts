@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server';
+import {decryptWebflowToken} from '../credentials/route';
 
 const BASE='https://api.webflow.com/v2';
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
@@ -9,8 +10,8 @@ async function webflow(path:string,token:string):Promise<Json>{
  return await response.json() as Json;
 }
 export async function GET(request:Request){
- const token=process.env.WEBFLOW_API_TOKEN;
- if(!token)return NextResponse.json({error:'Webflow is not configured. Set WEBFLOW_API_TOKEN in the server environment.'},{status:503,headers});
+ const token=await decryptWebflowToken().catch(()=>null) || process.env.WEBFLOW_API_TOKEN;
+ if(!token)return NextResponse.json({error:'Webflow is not configured. Connect Webflow with an API token first.'},{status:503,headers});
  const url=new URL(request.url);
  const siteId=url.searchParams.get('siteId');
  if(siteId!==null&&!/^[a-f0-9]{24}$/i.test(siteId))return NextResponse.json({error:'Invalid Webflow site ID'},{status:400,headers});
