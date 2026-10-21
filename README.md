@@ -1,30 +1,28 @@
-# Studio CMS Starter (v0.1)
+# Migration Studio
 
-A working Next.js prototype for an independent visual website builder.
+Dedicated **website migration** workspace. This branch intentionally excludes the CMS designer, forms, SEO manager, and unrelated application routes.
 
-## Run
+## Run locally
 
 ```bash
 npm install
+npm run typecheck
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000.
 
-## Implemented
-- Project dashboard
-- Add and edit heading, paragraph, button, and image blocks
-- Layer selection and properties editor
-- Desktop/mobile canvas
-- Browser localStorage save/load
-- JSON export
+## Currently working
+- Premium responsive migration dashboard
+- New migration wizard with source URL validation and destination selection
+- Migration project list and six-stage progress overview
+- Local browser persistence for planning records
 
-## Not yet implemented
-Production authentication, database-backed CMS, migrations, AI, deployment, drag-and-drop, publishing, or real multi-project support. This is a starter prototype, not a production CMS.
+## Not implemented yet
+Real crawling, connector authentication, page/CMS mapping, website generation, visual comparison, production database persistence, and publishing. These require secure backend services and testing. The UI intentionally marks them as unavailable.
 
-## Next milestones
-1. PostgreSQL/Prisma projects, pages, blocks, revisions
-2. CMS collections, typed fields, entries and slug-based templates
-3. Component tree, drag-and-drop, responsive style inspector
-4. Preview builds and publishing
-5. Source import adapters and AI generation
+## Planned workflow
+Connect → Analyze → Map → Build → Compare → Publish.
+
+## Safety
+Do not paste private credentials into the migration URL field. The app does not modify source or destination sites.

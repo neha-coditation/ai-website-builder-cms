@@ -1,1 +1,0 @@
-ALTER TABLE "Site" ADD COLUMN "siteConfig" JSONB NOT NULL DEFAULT '{}';
