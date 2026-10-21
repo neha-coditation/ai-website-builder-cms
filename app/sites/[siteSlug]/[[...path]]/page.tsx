@@ -51,7 +51,8 @@ function blockStyle(b:Block,design:Design):CSSProperties{
   }
   return {...fromClass,...Object.fromEntries(Object.entries({color:s.color||design.bodyTextColor,backgroundColor:s.background||(b.type==='button'?design.primaryColor:undefined),fontSize:s.fontSize? s.fontSize+'px':undefined,padding:s.padding===undefined?undefined:s.padding+'px',borderRadius:s.radius===undefined?undefined:s.radius+'px',textAlign:s.align,maxWidth:s.maxWidth?s.maxWidth+'px':undefined,marginTop:s.marginTop===undefined?undefined:s.marginTop+'px',marginBottom:s.marginBottom===undefined?undefined:s.marginBottom+'px',width:s.width==='full'?'100%':s.width==='half'?'50%':undefined}).filter(([,value])=>value!==undefined))};
 }
-function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0}: {block:Block;blocks:Block[];design:Design;siteId:string;pageSlug:string;successMessage:string;depth?:number}){
+function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0,ancestors=[] ,cmsEntries={}}: {block:Block;blocks:Block[];design:Design;siteId:string;pageSlug:string;successMessage:string;depth?:number;ancestors?:string[];cmsEntries?:Record<string,Array<{id:string;slug:string;data:unknown}>>}){
+  if(ancestors.includes(block.id))return null;
   const style=blockStyle(block,design);
   const attrs={id:block.htmlId||undefined,className:block.classNames||undefined};
   if(block.type==='heading')return <h2 {...attrs} style={style}>{block.text}</h2>;
@@ -70,9 +71,18 @@ function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0}: {
   if(block.type==='spacer')return <div {...attrs} style={{height:40,...style}} aria-hidden="true"/>;
   if(block.type==='video')return /^(https:\/\/|\/uploads\/)/.test(block.text ?? '')?<video {...attrs} src={block.text} controls preload="metadata" style={{...style,maxWidth:'100%'}}/>:<div {...attrs}>Video source not configured</div>;
   if(block.type==='embed')return <pre {...attrs} style={{...style,whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{block.text}</pre>;
-  if(block.type==='container'&&depth<4){
+  if(block.type==='cms-list'){
+    const entries=block.collectionId?cmsEntries[block.collectionId]||[]:[];
+    const field=block.displayField||'name';
+    return <section {...attrs} style={style} aria-label={block.text||'Collection items'}>{entries.length?entries.map(entry=>{
+      const data=obj(entry.data);
+      const value=data[field]??data.name??data.title??entry.slug;
+      return <article key={entry.id}>{typeof value==='string'||typeof value==='number'?String(value):entry.slug}</article>;
+    }):<p>No published collection items available.</p>}</section>;
+  }
+  if(block.type==='container'){
     const children=blocks.filter(b=>b.parentId===block.id);
-    return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} siteId={siteId} pageSlug={pageSlug} successMessage={successMessage} depth={depth+1}/>)}</div>;
+    return <div {...attrs} className={['published-container',block.classNames].filter(Boolean).join(' ')} style={{...style,display:block.layout==='grid'?'grid':'flex',flexDirection:block.layout==='row'?'row':'column',gridTemplateColumns:block.layout==='grid'?`repeat(${Math.min(6,Math.max(1,block.columns||2))},minmax(0,1fr))`:undefined,gap:(block.gap??16)+'px'}}>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} siteId={siteId} pageSlug={pageSlug} successMessage={successMessage} depth={depth+1} ancestors={[...ancestors,block.id]} cmsEntries={cmsEntries}/>)}</div>;
   }
   return null;
 }
@@ -96,9 +106,15 @@ export default async function PublicPage({params}:Params){
   const forms=cfg.forms&&typeof cfg.forms==='object'&&!Array.isArray(cfg.forms)?cfg.forms as Record<string,unknown>:{};
   const successMessage=typeof forms.successMessage==='string'?forms.successMessage:'Thanks! Your submission has been received.';
   const ids=new Set(blocks.filter(b=>b.type==='container').map(b=>b.id));
+  const collectionIds=[...new Set(blocks.filter(b=>b.type==='cms-list'&&b.collectionId).map(b=>b.collectionId as string))];
+  const collections=collectionIds.length?await prisma.cmsCollection.findMany({where:{siteId:site.id,id:{in:collectionIds}},select:{id:true}}):[];
+  const allowedIds=collections.map(c=>c.id);
+  const entries=allowedIds.length?await prisma.cmsEntry.findMany({where:{collectionId:{in:allowedIds},status:'published'},select:{id:true,collectionId:true,slug:true,data:true},orderBy:{updatedAt:'desc'},take:200}):[];
+  const cmsEntries:Record<string,Array<{id:string;slug:string;data:unknown}>>={};
+  for(const entry of entries)(cmsEntries[entry.collectionId]??=[]).push(entry);
   return <div className="published-site" style={{background:design.pageBackground||'#fff',color:design.bodyTextColor||'#18202f',fontFamily:design.fontFamily||'system-ui'}}>
     <header className="published-header" style={{background:design.headerBackground||undefined,color:design.headerTextColor||undefined}}><strong>{design.logoText||site.name}</strong><nav aria-label="Site pages">{site.pages.map(p=><Link key={p.id} href={p.slug==='home'?'/sites/'+site.slug:'/sites/'+site.slug+'/'+p.slug} aria-current={p.id===page.id?'page':undefined}>{p.title}</Link>)}</nav></header>
-    <main className="published-main">{blocks.filter(b=>!b.parentId||!ids.has(b.parentId)).map(b=><Element key={b.id} block={b} blocks={blocks} design={design} siteId={site.id} pageSlug={page.slug} successMessage={successMessage}/>)}</main>
+    <main className="published-main">{blocks.filter(b=>!b.parentId||!ids.has(b.parentId)).map(b=><Element key={b.id} block={b} blocks={blocks} design={design} siteId={site.id} pageSlug={page.slug} successMessage={successMessage} cmsEntries={cmsEntries}/>)}</main>
     <footer className="published-footer" style={{background:design.footerBackground||undefined,color:design.footerTextColor||undefined}}>{design.footerText||'© '+new Date().getFullYear()+' '+site.name}</footer>
   </div>;
 }
