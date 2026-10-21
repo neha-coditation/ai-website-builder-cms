@@ -1,7 +1,7 @@
 name: Studio CMS quality checks
 on:
   push:
-    branches: ['phase-*', main]
+    branches: ['phase-*', main, test]
   pull_request:
 jobs:
   build:
