@@ -49,6 +49,7 @@ export async function GET(request:Request){
  const errors:string[]=[];
  try{
   const site=await api('/sites/'+siteId,token);
+  const pages=await collect('/sites/'+siteId+'/pages','pages',token);
   const collections=await collect('/sites/'+siteId+'/collections','collections',token);
   const entries:Obj[]=[];
   for(const collection of collections.items.slice(0,30)){
@@ -61,24 +62,15 @@ export async function GET(request:Request){
   }
   let redirects:Obj[]=[];let redirectCoverage:Obj|null=null;
   try{const result=await collect('/sites/'+siteId+'/301_redirects','redirects',token);redirects=result.items;redirectCoverage={total:result.total,complete:result.complete};}
-  catch(e){errors.push('301 redirects: '+(e instanceof Error?e.message:'unavailable'));}
+  catch(e){errors.push('301 redirects not accessible through this API connection: '+(e instanceof Error?e.message:'unavailable'));}
   let assets:Obj[]=[];let assetCoverage:Obj|null=null;
   try{const result=await collect('/sites/'+siteId+'/assets','assets',token);assets=result.items;assetCoverage={total:result.total,complete:result.complete};}
   catch(e){errors.push('Assets: '+(e instanceof Error?e.message:'unavailable'));}
-  let published:Obj|null=null;
-  const shortName=site.shortName;
-  if(typeof shortName==='string'&&/^[a-z0-9-]{1,63}$/i.test(shortName)){
-   const target='https://'+shortName+'.webflow.io/';
-   try{
-    const response=await fetch(target,{redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(12000),headers:{Accept:'text/html'}});
-    const length=Number(response.headers.get('content-length')||0);
-    if(response.ok&&response.headers.get('content-type')?.includes('text/html')&&length<=2000000){
-     const html=await response.text();
-     if(html.length<=2000000)published={url:target,httpStatus:response.status,signals:pageSignals(html)};
-     else errors.push('Published homepage exceeds 2 MB.');
-    }else errors.push('Published homepage: HTTP '+response.status+' or unavailable HTML.');
-   }catch(e){errors.push('Published homepage: '+(e instanceof Error?e.message:'unavailable'));}
-  }else errors.push('No validated Webflow staging domain for published-site inspection.');
-  return NextResponse.json({readOnly:true,siteId,collectionCount:collections.items.length,collectionsComplete:collections.complete,cmsEntries:entries,redirects,redirectCoverage,assets,assetCoverage,published,errors,limitations:['CMS entries are capped at 500 per collection and 30 collections.','Published-site inspection is limited to the Webflow staging homepage.','CSS rules, computed responsive layouts, reusable components and interaction behavior are not reconstructed.']},{headers});
+  // Unpublished Webflow projects are supported: never require a public URL.
+  const published:null=null;
+  const publicationStatus='not_checked_optional';
+  const pageMetadata=pages.items.map(page=>({id:page.id??null,title:page.title??null,slug:page.slug??null,seo:page.seo??null,openGraph:page.openGraph??null,archived:page.archived??null,draft:page.draft??null}));
+  const collectionSchemas=collections.items.map(collection=>({id:collection.id??null,name:collection.displayName??collection.singularName??null,slug:collection.slug??null,fields:collection.fields??[]}));
+  return NextResponse.json({readOnly:true,siteId,pageCount:pages.items.length,pagesComplete:pages.complete,pageMetadata,collectionCount:collections.items.length,collectionsComplete:collections.complete,collectionSchemas,publicationStatus,cmsEntries:entries,redirects,redirectCoverage,assets,assetCoverage,published,errors,limitations:['CMS entries are capped at 500 per collection and 30 collections.','Publishing is not required. Rendered HTML/CSS requires a separate authorized Designer extraction or optional export.','CSS rules, computed responsive layouts, reusable components and interaction behavior are not reconstructed.']},{headers});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Extraction failed'},{status:502,headers});}
 }
