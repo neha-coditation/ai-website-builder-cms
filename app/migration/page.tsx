@@ -14,7 +14,7 @@ export default function MigrationPage(){
   }catch(e){setError(e instanceof Error?e.message:'Inspection failed');}finally{setBusy(false);}
  }
  return <main style={{maxWidth:900,margin:'40px auto',padding:24,fontFamily:'system-ui'}}>
-  <a href="/">← All websites</a><h1>Webflow migration readiness</h1>
+  <a href="/">← All websites</a><h1>Webflow migration readiness</h1><p><a href="/migration/webflow">Connect Webflow and import pages + CMS into a new draft project →</a></p>
   <p>Step 1 of 4: inspect an exported HTML page. This is a read-only inventory, not a site migration. Your Webflow website remains unchanged.</p>
   <form onSubmit={inspect} style={{display:'grid',gap:16}}>
    <label>Published Webflow page URL<input required type="url" pattern="https://.*" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.webflow.io/" style={{display:'block',width:'100%',padding:12,marginTop:8}}/></label>

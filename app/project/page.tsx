@@ -12,7 +12,7 @@ const sections=[
  {label:'SEO',path:'/settings',icon:Search,detail:'SEO defaults and indexing configuration',state:'Partial'},
  {label:'Assets',path:'/designer',icon:ImageIcon,detail:'Media library in the Designer',state:'Partial'},
  {label:'Publishing',path:'/publishing',icon:UploadCloud,detail:'Site preview and publishing workflow',state:'Partial'},
- {label:'Webflow migration',path:'/migration',icon:FolderOpen,detail:'Read-only HTML inventory; full migration not available',state:'Partial'},
+ {label:'Webflow migration',path:'/migration/webflow',icon:FolderOpen,detail:'Webflow API import for pages and CMS; visual rebuild separate',state:'Partial'},
  {label:'Site settings',path:'/settings',icon:Settings2,detail:'General, forms, SEO, design and advanced settings',state:'Available'},
 ] as const;
 function Overview(){
