@@ -24,7 +24,8 @@ function reportDatabaseFailure(operation: string, error: unknown) {
 export async function GET() {
   try {
     // Import within the handler so initialization errors are logged too.
-    const { prisma } = await import("../../../lib/prisma");
+    const { getPrisma } = await import("../../../lib/prisma");
+    const prisma = getPrisma();
     const sites = await prisma.site.findMany({ orderBy: { updatedAt: "desc" } });
     return NextResponse.json(sites);
   } catch (error) {
@@ -38,7 +39,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   try {
-    const { prisma } = await import("../../../lib/prisma");
+    const { getPrisma } = await import("../../../lib/prisma");
+    const prisma = getPrisma();
     const exists = await prisma.site.findUnique({ where: { slug: parsed.data.slug } });
     if (exists) return NextResponse.json({ error: "Slug already exists" }, { status: 409 });
     const site = await prisma.site.create({ data: parsed.data });

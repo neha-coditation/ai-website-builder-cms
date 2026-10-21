@@ -1,6 +1,7 @@
-import { prisma } from '../../../../lib/prisma';
+import { getPrisma } from '../../../../lib/prisma';
 type Context={params:Promise<{siteSlug:string}>};
 export async function GET(request:Request,{params}:Context){
+  const prisma = getPrisma();
  const {siteSlug}=await params;
  const site=await prisma.site.findUnique({where:{slug:siteSlug},select:{slug:true,pages:{select:{slug:true,updatedAt:true}}}});
  if(!site)return new Response('Not found',{status:404});

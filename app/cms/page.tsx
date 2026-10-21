@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -11,7 +12,7 @@ const fieldTypes:Field['type'][]=['text','richText','number','boolean','date','i
 const slugify=(value:string)=>value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 async function api<T>(path:string, init?:RequestInit):Promise<T>{
  const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',...init?.headers}});
- const payload=await response.json().catch(()=>null);
+ const payload=await readJsonResponse(response).catch(()=>null);
  if(!response.ok)throw new Error(typeof payload?.error==='string'?payload.error:'Request failed: '+response.status);
  return payload as T;
 }

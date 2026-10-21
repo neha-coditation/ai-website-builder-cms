@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import {Suspense,useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useSearchParams} from 'next/navigation';
@@ -8,7 +9,7 @@ function Workspace(){
  const params=useSearchParams(),siteId=params.get('siteId')||'';
  const [report,setReport]=useState<Report|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[revision,setRevision]=useState(0);
  useEffect(()=>{if(!siteId){setError('Select a website first.');setLoading(false);return;}let live=true;
- fetch('/api/sites/'+encodeURIComponent(siteId)+'/publish-preflight',{cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error||'Unable to check publishing readiness');return data}).then(data=>{if(live)setReport(data)}).catch(e=>{if(live)setError(String(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[siteId,revision]);
+ fetch('/api/sites/'+encodeURIComponent(siteId)+'/publish-preflight',{cache:'no-store'}).then(async r=>{const data=await readJsonResponse(r);if(!r.ok)throw Error(data.error||'Unable to check publishing readiness');return data}).then(data=>{if(live)setReport(data)}).catch(e=>{if(live)setError(String(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[siteId,revision]);
  return <main style={{maxWidth:920,margin:'48px auto',padding:24,fontFamily:'system-ui'}}>
   <Link href={siteId?'/project?siteId='+encodeURIComponent(siteId):'/'}>← Project overview</Link>
   <h1>Publishing readiness</h1><button type="button" onClick={()=>{setLoading(true);setError('');setRevision(value=>value+1)}} disabled={loading||!siteId}>Run checks again</button><p>This is a read-only preflight. Publishing, domains and rollback are not yet available.</p>

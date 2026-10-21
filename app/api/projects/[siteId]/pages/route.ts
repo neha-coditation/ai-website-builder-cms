@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { prisma } from '../../../../../lib/prisma';
+import { getPrisma } from '../../../../../lib/prisma';
 
 const blockSchema = z.object({
   id: z.string().min(1).max(120),
@@ -23,6 +23,7 @@ const saveSchema = z.object({ content: contentSchema });
 type Context = { params: Promise<{ siteId: string }> };
 
 export async function GET(_request: Request, { params }: Context) {
+  const prisma = getPrisma();
   const { siteId } = await params;
   const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, globalDesign: true } });
   if (!site) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
@@ -30,6 +31,7 @@ export async function GET(_request: Request, { params }: Context) {
   return NextResponse.json({ site, pages });
 }
 export async function POST(request: Request, { params }: Context) {
+  const prisma = getPrisma();
   const { siteId } = await params;
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

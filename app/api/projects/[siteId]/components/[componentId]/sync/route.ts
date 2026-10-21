@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../../../lib/prisma';
+import { getPrisma } from '../../../../../../../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 type B={id:string;type:string;text:string;parentId?:string;componentId?:string;componentInstanceId?:string;componentSourceId?:string;classNames?:string;[key:string]:unknown};
@@ -7,6 +7,7 @@ const isObject=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'
 const isBlock=(v:unknown):v is B=>isObject(v)&&typeof v.id==='string'&&typeof v.type==='string'&&typeof v.text==='string';
 type Context={params:Promise<{siteId:string;componentId:string}>};
 export async function POST(_request:Request,{params}:Context){
+  const prisma = getPrisma();
  const {siteId,componentId}=await params;
  const component=await prisma.siteComponent.findFirst({where:{id:componentId,siteId}});
  if(!component)return NextResponse.json({error:'Component not found'},{status:404});

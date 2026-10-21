@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { prisma } from '../../../../../lib/prisma';
+import { getPrisma } from '../../../../../lib/prisma';
 
 const rule=z.object({
  color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
@@ -13,6 +13,7 @@ const rule=z.object({
 const classes=z.record(z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_-]*$/).max(80),rule).refine(v=>Object.keys(v).length<=100,'Maximum 100 classes');
 type Context={params:Promise<{siteId:string}>};
 export async function GET(_request:Request,{params}:Context){
+  const prisma = getPrisma();
  const {siteId}=await params;
  const site=await prisma.site.findUnique({where:{id:siteId},select:{globalDesign:true}});
  if(!site)return NextResponse.json({error:'Website not found'},{status:404});
@@ -20,6 +21,7 @@ export async function GET(_request:Request,{params}:Context){
  return NextResponse.json(design.classes||{});
 }
 export async function PUT(request:Request,{params}:Context){
+  const prisma = getPrisma();
  const {siteId}=await params;
  const parsed=classes.safeParse(await request.json().catch(()=>null));
  if(!parsed.success)return NextResponse.json({error:parsed.error.flatten()},{status:400});

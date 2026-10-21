@@ -1,7 +1,8 @@
 import {NextResponse} from 'next/server';
-import {prisma} from '../../../../../lib/prisma';
+import { getPrisma } from '../../../../../lib/prisma';
 type Context={params:Promise<{siteId:string}>};
 export async function GET(request:Request,{params}:Context){
+  const prisma = getPrisma();
  const {siteId}=await params;
  const site=await prisma.site.findUnique({where:{id:siteId},select:{id:true}});
  if(!site)return NextResponse.json({error:'Site not found'},{status:404});

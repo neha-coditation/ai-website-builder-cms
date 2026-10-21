@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import {Suspense,useEffect,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 type Issue={severity:'error'|'warning';page:string;code:string;message:string};
@@ -6,7 +7,7 @@ type Report={slug:string;pages:{id:string;path:string;title:string;description:s
 function SeoPageContent(){
  const params=useSearchParams();const siteId=params.get('siteId')||'';
  const [report,setReport]=useState<Report|null>(null);const [error,setError]=useState('');const [loading,setLoading]=useState(false);
- async function run(){if(!siteId)return;setLoading(true);setError('');try{const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/seo-audit',{cache:'no-store'});if(!response.ok)throw new Error('Audit request failed: '+response.status);setReport(await response.json());}catch(e){setError(e instanceof Error?e.message:'Unable to run audit')}finally{setLoading(false)}}
+ async function run(){if(!siteId)return;setLoading(true);setError('');try{const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/seo-audit',{cache:'no-store'});if(!response.ok)throw new Error('Audit request failed: '+response.status);setReport(await readJsonResponse(response));}catch(e){setError(e instanceof Error?e.message:'Unable to run audit')}finally{setLoading(false)}}
  useEffect(()=>{void run()},[siteId]);
  return <main style={{maxWidth:1100,margin:'0 auto',padding:'40px 24px',fontFamily:'Inter,system-ui,sans-serif'}}>
   <a href={'/project?siteId='+encodeURIComponent(siteId)}>← Website workspace</a>

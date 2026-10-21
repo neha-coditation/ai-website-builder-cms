@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import {useState} from 'react';
 type Props={siteId:string;formId:string;pageSlug:string;title:string;successMessage:string;className?:string;style?:React.CSSProperties};
 export default function SiteForm({siteId,formId,pageSlug,title,successMessage,className,style}:Props){
@@ -12,7 +13,7 @@ export default function SiteForm({siteId,formId,pageSlug,title,successMessage,cl
   setStatus('sending');setError('');
   try{
    const response=await fetch('/api/form-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({siteId,formId,pageSlug,fields,website})});
-   if(!response.ok){const result=await response.json().catch(()=>({}));throw Error(result.error||'Submission failed');}
+   if(!response.ok){const result=await readJsonResponse(response).catch(()=>({}));throw Error(result.error||'Submission failed');}
    form.reset();setStatus('success');
   }catch(e){setError(e instanceof Error?e.message:'Submission failed');setStatus('error');}
  }

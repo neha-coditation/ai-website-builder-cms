@@ -1,9 +1,13 @@
 // Integration smoke test: exercises database persistence and rolls back every test record.
 // Requires DATABASE_URL and an already migrated PostgreSQL database.
 const { PrismaClient } = require('@prisma/client');
+const { PrismaNeon } = require('@prisma/adapter-neon');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const prisma = new PrismaClient();
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
+const prisma = new PrismaClient({
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+});
 async function main() {
   const marker = randomUUID();
   let rolledBack = false;

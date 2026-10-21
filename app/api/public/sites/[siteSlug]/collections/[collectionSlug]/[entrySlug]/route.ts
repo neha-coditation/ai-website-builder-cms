@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../../../../lib/prisma';
+import { getPrisma } from '../../../../../../../../lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +7,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ siteSlug: string; collectionSlug: string; entrySlug: string }> }
 ) {
+  const prisma = getPrisma();
   const { siteSlug, collectionSlug, entrySlug } = await params;
   const entry = await prisma.cmsEntry.findFirst({
     where: {

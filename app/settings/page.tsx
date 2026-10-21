@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -21,7 +22,7 @@ function SiteSettings() {
     if (!siteId) { setError('Open website settings from the dashboard.'); return; }
     let active=true;
     fetch('/api/sites/'+encodeURIComponent(siteId),{cache:'no-store'})
-      .then(async response=>{if(!response.ok)throw new Error('Website not found.');return response.json();})
+      .then(async response=>{if(!response.ok)throw new Error('Website not found.');return readJsonResponse(response);})
       .then((data:Settings)=>{if(active)setSite({...data,globalDesign:{...defaults,...data.globalDesign},siteConfig:{seo:{...configDefaults.seo,...data.siteConfig?.seo,redirects:data.siteConfig?.seo?.redirects||[]},forms:{...configDefaults.forms,...data.siteConfig?.forms},advanced:{...configDefaults.advanced,...data.siteConfig?.advanced}}});})
       .catch(cause=>{if(active)setError(cause instanceof Error?cause.message:'Could not load settings.');});
     return ()=>{active=false;};
@@ -33,7 +34,7 @@ function SiteSettings() {
     try {
       const response=await fetch('/api/sites/'+encodeURIComponent(siteId),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:site.name,description:site.description,defaultTitle:site.defaultTitle,faviconUrl:site.faviconUrl,globalDesign:site.globalDesign,siteConfig:site.siteConfig})});
       if(!response.ok)throw new Error('Unable to save website settings ('+response.status+').');
-      setSite(await response.json());setSaved(true);
+      setSite(await readJsonResponse(response));setSaved(true);
     }catch(cause){setError(cause instanceof Error?cause.message:'Save failed.');}
     finally{setSaving(false);}
   }

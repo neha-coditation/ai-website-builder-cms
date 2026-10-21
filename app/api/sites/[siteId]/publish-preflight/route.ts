@@ -1,10 +1,11 @@
 import {NextResponse} from 'next/server';
-import {prisma} from '../../../../../lib/prisma';
+import { getPrisma } from '../../../../../lib/prisma';
 
 type Context={params:Promise<{siteId:string}>};
 type Issue={severity:'blocker'|'warning';code:string;page?:string;message:string};
 const record=(value:unknown):Record<string,unknown>=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
 export async function GET(_request:Request,{params}:Context){
+  const prisma = getPrisma();
  const {siteId}=await params;
  const site=await prisma.site.findUnique({where:{id:siteId},select:{id:true,name:true,slug:true,defaultTitle:true,siteConfig:true,pages:{select:{slug:true,title:true,content:true}},assets:{select:{id:true,url:true,alt:true}}}});
  if(!site)return NextResponse.json({error:'Website not found'},{status:404});

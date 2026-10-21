@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../lib/prisma';
+import { getPrisma } from '../../../../lib/prisma';
 import { mkdir,writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 export const runtime='nodejs';
 export async function POST(request:Request){
+  const prisma = getPrisma();
  const data=await request.formData().catch(()=>null);
  const siteId=data?.get('siteId'),file=data?.get('file');
  if(typeof siteId!=='string'||!(file instanceof File))return NextResponse.json({error:'Site and video are required'},{status:400});

@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build",
     "db:status": "prisma migrate status",
     "db:generate": "prisma generate",
+    "test:designer": "node --test scripts/test-designer-persistence.cjs",
     "test:persistence": "node scripts/verify-persistence.cjs"
   },
   "dependencies": {

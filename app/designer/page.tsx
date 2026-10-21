@@ -1,9 +1,11 @@
 'use client';
+import './designer.css';
+import { readJsonResponse } from '../../lib/read-json-response';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Search, FormInput, ListFilter, PanelsTopLeft, CheckSquare, Minus, MoveVertical, Video, TextCursorInput, ChevronDown, FileText, GripVertical, ChevronsUpDown, FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, Undo2, Redo2, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, FolderOpen, LayoutTemplate, Monitor, MousePointer2, Plus, Save, Smartphone, Trash2, Pencil, RefreshCw, Globe2, Type, X } from 'lucide-react';
+import { Search, FormInput, ListFilter, PanelsTopLeft, CheckSquare, Minus, MoveVertical, Video, TextCursorInput, ChevronDown, FileText, GripVertical, ChevronsUpDown, FilePlus2, Files, Settings2, AlignLeft, ArrowDown, ArrowUp, Undo2, Redo2, ChevronLeft, Code2, Database, Eye, Heading1, Image as ImageIcon, Layers, FolderOpen, LayoutTemplate, Monitor, Tablet, Copy, ZoomIn, ZoomOut, MousePointer2, Plus, Save, Smartphone, Trash2, Pencil, RefreshCw, Globe2, Type, X } from 'lucide-react';
 
 type BlockType = 'heading' | 'paragraph' | 'button' | 'image' | 'cms-list' | 'container' | 'form' | 'search' | 'dropdown' | 'tabs' | 'input' | 'textarea' | 'checkbox' | 'select' | 'divider' | 'spacer' | 'video' | 'embed';
 type Block = { id: string; type: BlockType; text: string; collectionId?: string; displayField?: string; htmlId?:string; classNames?:string; alt?:string; href?:string; parentId?:string; componentId?:string; componentInstanceId?:string; componentSourceId?:string; tabContents?:string[]; layout?:'column'|'row'|'grid';gap?:number;columns?:number; style?: { color?: string; background?: string; fontSize?: number; padding?: number; radius?: number; align?: 'left'|'center'|'right'; width?: 'auto'|'full'|'half'; maxWidth?: number; marginTop?: number; marginBottom?: number } };
@@ -112,7 +114,12 @@ function Workspace() {
   const [globalDesign,setGlobalDesign] = useState<GlobalDesign>({});
   const [selected, setSelected] = useState<string | null>('hero-title');
   const [multiSelected,setMultiSelected]=useState<string[]>([]);
-  const [device, setDevice] = useState<'desktop'|'mobile'>('desktop');
+  const [device, setDevice] = useState<'desktop'|'tablet'|'mobile'>('desktop');
+  const [zoom,setZoom]=useState(100);
+  const [pageNameDraft,setPageNameDraft]=useState('');
+  const [pageSlugDraft,setPageSlugDraft]=useState('');
+  const [pageBusy,setPageBusy]=useState(false);
+  const [pageDetailsStatus,setPageDetailsStatus]=useState('');
   const [leftTab, setLeftTab] = useState<'pages'|'elements'|'layers'|'assets'>('pages');
   const [layerSearch,setLayerSearch]=useState('');
   const [collapsedLayers,setCollapsedLayers]=useState<string[]>([]);
@@ -120,7 +127,7 @@ function Workspace() {
   const [pageSettingsOpen,setPageSettingsOpen]=useState(false);
   const [leftCollapsed,setLeftCollapsed]=useState(false);
   const [rightCollapsed,setRightCollapsed]=useState(false);
-  const [rightTab, setRightTab] = useState<'content'|'style'>('content');
+  const [rightTab, setRightTab] = useState<'content'|'style'>('style');
   const [preview, setPreview] = useState(false);
   const [activeTabByBlock,setActiveTabByBlock]=useState<Record<string,number>>({});
   const [saved, setSaved] = useState(false);
@@ -137,6 +144,10 @@ function Workspace() {
   const [elementCategory,setElementCategory]=useState<'All'|'Elements'|'Sections'|'Components'>('All');
   const lastAutoSaved=useRef<{key:string;json:string}>({key:'',json:''});
   const autoSaveRequest=useRef<Promise<void>>(Promise.resolve());
+  const autoSaveTimer=useRef<number | undefined>(undefined);
+  const navigationLock=useRef(false);
+  const [navigating,setNavigating]=useState(false);
+  const activePageKey=useRef('');
   const [pages, setPages] = useState<ProjectPage[]>([]);
   const [classRules,setClassRules]=useState<ClassRules>({});
   const [classNameDraft,setClassNameDraft]=useState('');
@@ -160,6 +171,7 @@ function Workspace() {
   const [historyRevision,setHistoryRevision] = useState(0);
   const [historyReady,setHistoryReady] = useState(false);
   const historyKey = siteId + ':' + pageId;
+  activePageKey.current=historyKey;
   const resetHistory = (key:string) => {
     historyRef.current = {pageKey:key,past:[],present:null,future:[]};
     setHistoryRevision(n=>n+1);
@@ -189,13 +201,13 @@ function Workspace() {
     setComponentsLoaded(false);
     fetch('/api/projects/'+encodeURIComponent(siteId)+'/components').then(async response=>{
       if(!response.ok)throw Error('Unable to load components');
-      return response.json();
+      return readJsonResponse(response);
     }).then(data=>{if(active){setComponents(data.components||[]);setComponentsLoaded(true);}})
       .catch(error=>{if(active){setComponents([]);setComponentsLoaded(true);setError(error instanceof Error?error.message:'Unable to load components');}});
     return ()=>{active=false;};
   },[siteId]);
   useEffect(()=>{
-    if(!loaded||!historyReady||!siteId)return;
+    if(!loaded||!historyReady)return;
     const key=siteId+':'+pageId;
     const json=JSON.stringify(site);
     if(lastAutoSaved.current.key!==key){
@@ -205,19 +217,41 @@ function Workspace() {
     }
     if(lastAutoSaved.current.json===json)return;
     setAutoSaveStatus('idle');
-    const timer=window.setTimeout(()=>{
-      setAutoSaveStatus('saving');
-      const url=pageId?'/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId):'/api/projects/'+encodeURIComponent(siteId)+'/home';
-      autoSaveRequest.current=autoSaveRequest.current.catch(()=>{}).then(async()=>{
-        const response=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(pageId?{content:JSON.parse(json)}:JSON.parse(json))});
-        if(!response.ok)throw new Error('Autosave failed ('+response.status+')');
-        lastAutoSaved.current={key,json};
-        localStorage.setItem('studio-cms-designer-'+siteId,json);
-        setAutoSaveStatus('saved');
-      }).catch(error=>{setAutoSaveStatus('error');setError(error instanceof Error?error.message:'Autosave failed');});
+    autoSaveTimer.current=window.setTimeout(()=>{
+      void persistSnapshot(site,siteId,pageId).catch(()=>{});
     },1100);
-    return ()=>window.clearTimeout(timer);
+    return ()=>window.clearTimeout(autoSaveTimer.current);
   },[site,siteId,pageId,loaded,historyReady]);
+  useEffect(()=>{
+    const warn=(event:BeforeUnloadEvent)=>{
+      if(loaded&&historyReady&&lastAutoSaved.current.json!==JSON.stringify(site)){
+        event.preventDefault();event.returnValue='';
+      }
+    };
+    window.addEventListener('beforeunload',warn);
+    return ()=>window.removeEventListener('beforeunload',warn);
+  },[site,loaded,historyReady]);
+  function persistSnapshot(snapshot:Site,targetSiteId:string,targetPageId:string):Promise<void>{
+    const key=targetSiteId+':'+targetPageId;
+    const json=JSON.stringify(snapshot);
+    const request=autoSaveRequest.current.catch(()=>{}).then(async()=>{
+      if(lastAutoSaved.current.key===key&&lastAutoSaved.current.json===json)return;
+      if(activePageKey.current===key)setAutoSaveStatus('saving');
+      if(targetSiteId){
+        const url='/api/projects/'+encodeURIComponent(targetSiteId)+(targetPageId?'/pages/'+encodeURIComponent(targetPageId):'/home');
+        const response=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:targetPageId?JSON.stringify({content:snapshot}):json});
+        if(!response.ok)throw Error('Could not save page ('+response.status+'). Your edits are still in the editor.');
+      }
+      setPages(previous=>previous.map(page=>page.id===targetPageId?{...page,content:snapshot}:page));
+      try{localStorage.setItem('studio-cms-designer-'+(targetSiteId||'local'),json);}catch{if(!targetSiteId)throw Error('Browser storage is full. Free up storage and retry Save.');}
+      if(activePageKey.current===key){lastAutoSaved.current={key,json};setAutoSaveStatus('saved');}
+    });
+    autoSaveRequest.current=request;
+    return request.catch(cause=>{
+      if(activePageKey.current===key){setAutoSaveStatus('error');setError(cause instanceof Error?cause.message:'Save failed');}
+      throw cause;
+    });
+  }
   function undo() {
     const history=historyRef.current;
     if(!history.past.length || history.pageKey!==historyKey)return;
@@ -242,7 +276,7 @@ function Workspace() {
   const canRedo=historyRevision>=0 && historyRef.current.pageKey===historyKey && historyRef.current.future.length>0;
   useEffect(()=>{
     function onKeyDown(event:KeyboardEvent){
-      if(preview || pageSettingsOpen || imagePickerOpen || !loaded)return;
+      if(navigationLock.current || preview || pageSettingsOpen || imagePickerOpen || !loaded)return;
       const element=event.target as HTMLElement|null;
       if(element?.closest('input,textarea,select,[contenteditable="true"],[role="dialog"]'))return;
       const command=event.metaKey||event.ctrlKey;
@@ -269,14 +303,14 @@ function Workspace() {
         try {
           const res = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/pages', { cache: 'no-store' });
           if (!res.ok) throw new Error(res.status === 404 ? 'Project not found.' : 'Unable to load project from database.');
-          const data: { site: DbSite; pages: ProjectPage[] } = await res.json();
+          const data: { site: DbSite; pages: ProjectPage[] } = await readJsonResponse(res);
           projectName = data.site.name;
           if (!cancelled) setGlobalDesign(data.site.globalDesign || {});
           const available = [...data.pages];
           if (!available.some(page => page.slug === 'home')) {
             const homeRes = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/home', { cache: 'no-store' });
             if (!homeRes.ok) throw new Error('Unable to load homepage.');
-            const homeData: { page: { id: string; content: unknown } | null } = await homeRes.json();
+            const homeData: { page: { id: string; content: unknown } | null } = await readJsonResponse(homeRes);
             if (homeData.page) available.unshift({ ...homeData.page, slug: 'home', title: 'Home' });
           }
           if (!cancelled) setPages(available);
@@ -313,7 +347,7 @@ function Workspace() {
     if (!siteId) return;
     let cancelled = false;
     fetch('/api/collections?siteId='+encodeURIComponent(siteId),{cache:'no-store'})
-      .then(response=>{if(!response.ok)throw new Error('Could not load CMS collections');return response.json();})
+      .then(response=>{if(!response.ok)throw new Error('Could not load CMS collections');return readJsonResponse(response);})
       .then((data:CmsCollection[])=>{if(!cancelled)setCollections(data);})
       .catch(()=>{if(!cancelled)setCollections([]);});
     return ()=>{cancelled=true;};
@@ -323,7 +357,7 @@ function Workspace() {
     let cancelled = false;
     for (const id of ids) {
       fetch('/api/entries?collectionId='+encodeURIComponent(id),{cache:'no-store'})
-        .then(response=>{if(!response.ok)throw new Error('Could not load CMS entries');return response.json();})
+        .then(response=>{if(!response.ok)throw new Error('Could not load CMS entries');return readJsonResponse(response);})
         .then((data:CmsEntry[])=>{if(!cancelled)setEntriesByCollection(previous=>({...previous,[id]:data.filter(entry=>entry.status==='published')}));})
         .catch(()=>{if(!cancelled)setEntriesByCollection(previous=>({...previous,[id]:[]}));});
     }
@@ -333,7 +367,7 @@ function Workspace() {
     if(!siteId)return;
     let active=true;
     fetch('/api/projects/'+encodeURIComponent(siteId)+'/classes',{cache:'no-store'})
-      .then(r=>{if(!r.ok)throw Error('Could not load classes');return r.json()})
+      .then(r=>{if(!r.ok)throw Error('Could not load classes');return readJsonResponse(r)})
       .then(data=>{if(active)setClassRules(data)})
       .catch(()=>{if(active)setError('Could not load reusable classes.')});
     return ()=>{active=false};
@@ -388,7 +422,7 @@ function Workspace() {
   }
   async function refreshAssets(){
     if(!siteId)return;
-    try{const response=await fetch('/api/assets?siteId='+encodeURIComponent(siteId),{cache:'no-store'});if(!response.ok)throw Error('Could not load assets');setAssets(await response.json());}
+    try{const response=await fetch('/api/assets?siteId='+encodeURIComponent(siteId),{cache:'no-store'});if(!response.ok)throw Error('Could not load assets');setAssets(await readJsonResponse(response));}
     catch(cause){setError(cause instanceof Error?cause.message:'Could not load assets');}
   }
   useEffect(()=>{if(siteId)void refreshAssets();},[siteId]);
@@ -402,8 +436,8 @@ function Workspace() {
         data.append('siteId',siteId);
         data.append('file',file);
         const response=await fetch('/api/assets/upload',{method:'POST',body:data});
-        if(!response.ok){const result=await response.json();throw Error(result.error||'Upload failed');}
-        const uploaded:Asset=await response.json();
+        if(!response.ok){const result=await readJsonResponse(response);throw Error(result.error||'Upload failed');}
+        const uploaded:Asset=await readJsonResponse(response);
         if(!firstUploaded)firstUploaded=uploaded;
       }
       await refreshAssets();
@@ -420,7 +454,7 @@ function Workspace() {
     if(current?.type==='image'){updateBlock({text:asset.url,alt:asset.alt});setRightTab('content');setImagePickerOpen(false);}
     else{const block:Block={id:makeId(),type:'image',text:asset.url,alt:asset.alt,classNames:autoClass('image',site.blocks),style:{}};setSite(previous=>({...previous,blocks:[...previous.blocks,block]}));setSelected(block.id);setRightTab('content');}
   }
-  function openPage(page: ProjectPage) {
+  function displayPage(page: ProjectPage) {
     setHistoryReady(false);
     resetHistory(siteId + ':' + page.id);
     const content = page.content;
@@ -433,33 +467,85 @@ function Workspace() {
     setError('');
     setHistoryReady(true);
   }
+  async function openPage(page:ProjectPage){
+    if(page.id===pageId||navigationLock.current)return;
+    navigationLock.current=true;setNavigating(true);
+    try{
+      window.clearTimeout(autoSaveTimer.current);
+      await persistSnapshot(site,siteId,pageId);
+      // The page list is refreshed by autosave; never replace the current page with a stale copy.
+      displayPage(page);
+    }catch{/* Keep the current page open so failed saves can be retried. */}
+    finally{navigationLock.current=false;setNavigating(false);}
+  }
+  function showPageSettings(){
+    setPageDetailsStatus('');
+    setPageNameDraft(pageTitle);
+    setPageSlugDraft(pages.find(page=>page.id===pageId)?.slug||'home');
+    setPageSettingsOpen(true);
+  }
+  async function updatePageMetadata(){
+    if(!siteId||!pageId||pageBusy)return;
+    setPageBusy(true);setError('');setPageDetailsStatus('');
+    try{
+      const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:pageNameDraft,slug:pageSlugDraft})});
+      const data=await readJsonResponse(response);
+      if(!response.ok)throw Error(data.error||'Could not update page settings.');
+      setPageTitle(data.title);
+      setPages(previous=>previous.map(page=>page.id===pageId?{...page,title:data.title,slug:data.slug}:page));
+      setPageDetailsStatus('Page details updated.');
+    }catch(cause){setPageDetailsStatus(cause instanceof Error?cause.message:'Could not update page.');}
+    finally{setPageBusy(false);}
+  }
+  async function duplicatePage(){
+    if(!siteId||!pageId||navigationLock.current)return;
+    navigationLock.current=true;setNavigating(true);setError('');
+    try{
+      window.clearTimeout(autoSaveTimer.current);
+      await persistSnapshot(site,siteId,pageId);
+      const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId),{method:'POST'});
+      const data=await readJsonResponse(response);
+      if(!response.ok)throw Error(data.error||'Could not duplicate page.');
+      setPages(previous=>[...previous,data]);displayPage(data);
+    }catch(cause){setError(cause instanceof Error?cause.message:'Could not duplicate page.');}
+    finally{navigationLock.current=false;setNavigating(false);}
+  }
   async function createPage() {
     const title = newPageName.trim();
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-    if (!siteId || !slug) return;
+    if (!siteId || !slug || navigationLock.current) return;
+    navigationLock.current=true;setNavigating(true);
     setCreatingPage(true);
     try {
+      window.clearTimeout(autoSaveTimer.current);
+      await persistSnapshot(site,siteId,pageId);
       const response = await fetch('/api/projects/' + encodeURIComponent(siteId) + '/pages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, slug }),
       });
-      const result = await response.json();
+      const result = await readJsonResponse(response);
       if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not create page.');
       const page = result as ProjectPage;
       setPages(previous => [...previous, page]);
-      openPage(page);
+      displayPage(page);
       setNewPageName('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not create page.'); }
-    finally { setCreatingPage(false); }
+    finally { setCreatingPage(false);navigationLock.current=false;setNavigating(false); }
   }
   async function deletePage() {
     if (!siteId || !pageId || pages.find(page=>page.id===pageId)?.slug==='home') return;
-    if (!window.confirm('Delete this page permanently?')) return;
+    if(navigationLock.current||!window.confirm('Delete this page permanently?')) return;
+    navigationLock.current=true;setNavigating(true);
+    try{
+    window.clearTimeout(autoSaveTimer.current);
+    await autoSaveRequest.current.catch(()=>{});
     const response = await fetch('/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId),{method:'DELETE'});
     if (!response.ok) { setError('Could not delete page.'); return; }
     const remaining = pages.filter(page=>page.id!==pageId);
     setPages(remaining);
     const next = remaining.find(page=>page.slug==='home') || remaining[0];
-    if (next) openPage(next);
+    if (next) displayPage(next);
+    }catch{setError('Could not delete page. Please try again.');}
+    finally{navigationLock.current=false;setNavigating(false);}
   }
   const current = site.blocks.find(b => b.id === selected);
   function updateSeo(patch: Partial<Seo>) { setSite(previous => ({ ...previous, seo: { title:'',description:'',noindex:false,ogImage:'',...previous.seo,...patch } })); }
@@ -483,7 +569,7 @@ function Workspace() {
     
     if(!siteId)return;
     setComponentBusy(true);
-    try{const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/components',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,blocks})});if(!response.ok)throw Error('Unable to create component');const saved=await response.json();setComponents(previous=>[...previous,saved]);setComponentName('');}catch(error){setError(error instanceof Error?error.message:'Unable to create component');}finally{setComponentBusy(false);}
+    try{const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/components',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,blocks})});if(!response.ok)throw Error('Unable to create component');const saved=await readJsonResponse(response);setComponents(previous=>[...previous,saved]);setComponentName('');}catch(error){setError(error instanceof Error?error.message:'Unable to create component');}finally{setComponentBusy(false);}
   }
   async function syncComponentSitewide(component:SavedComponent){
     if(!siteId)return;
@@ -491,13 +577,13 @@ function Workspace() {
     setComponentBusy(true);
     try{
       const response=await fetch('/api/projects/'+encodeURIComponent(siteId)+'/components/'+encodeURIComponent(component.id)+'/sync',{method:'POST'});
-      const result=await response.json();
+      const result=await readJsonResponse(response);
       if(!response.ok)throw Error(result.error||'Sitewide sync failed');
       // Refresh the open page from the server to avoid overwriting synced content with stale autosave state.
       const url=pageId?'/api/projects/'+encodeURIComponent(siteId)+'/pages/'+encodeURIComponent(pageId):'/api/projects/'+encodeURIComponent(siteId)+'/home';
       const pageResponse=await fetch(url,{cache:'no-store'});
       if(pageResponse.ok){
-        const pageData=await pageResponse.json();
+        const pageData=await readJsonResponse(pageResponse);
         const content=pageData.page?.content||pageData.content;
         if(content&&Array.isArray(content.blocks))setSite(previous=>({...previous,blocks:content.blocks}));
       }
@@ -797,7 +883,7 @@ function Workspace() {
     try{
       const form=new FormData();form.append('siteId',siteId);form.append('file',files[0]);
       const response=await fetch('/api/videos/upload',{method:'POST',body:form});
-      const data=await response.json();
+      const data=await readJsonResponse(response);
       if(!response.ok)throw Error(data.error||'Video upload failed');
       updateBlock({text:data.url});
     }catch(cause){setError(cause instanceof Error?cause.message:'Video upload failed');}
@@ -837,25 +923,17 @@ function Workspace() {
   }
 
   async function save() {
-    if (saving || !loaded) return;
-    setSaving(true);
-    setError('');
-    try {
-      if (siteId) {
-        const url = pageId ? '/api/projects/' + encodeURIComponent(siteId) + '/pages/' + encodeURIComponent(pageId) : '/api/projects/' + encodeURIComponent(siteId) + '/home';
-        const response = await fetch(url, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(pageId ? { content: site } : site),
-        });
-        if (!response.ok) throw new Error('Could not save page to PostgreSQL (' + response.status + ').');
-      }
-      setPages(previous => previous.map(page => page.id === pageId ? { ...page, content: site } : page));
-      localStorage.setItem(storageKey, JSON.stringify(site));
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 1600);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save changes.'); }
-    finally { setSaving(false); }
+    if(saving||!loaded)return;
+    window.clearTimeout(autoSaveTimer.current);
+    setSaving(true);setError('');
+    try{await persistSnapshot(site,siteId,pageId);setSaved(true);}
+    catch{/* persistSnapshot reports the failure and retains the editor state. */}
+    finally{setSaving(false);}
+  }
+  function selectionTrail():Block[]{
+    const trail:Block[]=[];const seen=new Set<string>();let block=current;
+    while(block&&!seen.has(block.id)){seen.add(block.id);trail.unshift(block);block=site.blocks.find(parent=>parent.id===block?.parentId);}
+    return trail;
   }
   function renderBlock(b: Block) {
     const style: React.CSSProperties = {
@@ -894,15 +972,24 @@ function Workspace() {
     }
     return b.text ? <img style={style} src={b.text} alt={b.alt||''} /> : <div className="builder-image-placeholder" style={style}><ImageIcon size={28}/> Add an image URL in Properties</div>;
   }
-  return <div className="builder">
-    <div className="builder-main">
+  return <div className="builder" onClickCapture={event=>{
+    const anchor=(event.target as HTMLElement).closest('a');
+    if(!anchor||anchor.target==='_blank'||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    if(lastAutoSaved.current.json===JSON.stringify(site))return;
+    event.preventDefault();event.stopPropagation();
+    if(navigationLock.current)return;
+    navigationLock.current=true;setNavigating(true);
+    window.clearTimeout(autoSaveTimer.current);
+    void persistSnapshot(site,siteId,pageId).then(()=>{window.location.assign(anchor.href);}).catch(()=>{}).finally(()=>{navigationLock.current=false;setNavigating(false);});
+  }}>
+    <div className="builder-main" inert={navigating} aria-busy={navigating}>
       <header className="builder-toolbar">
-        <div className="builder-project"><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">{pageTitle} · Designer</span></div>
-        <nav className="builder-top-nav" aria-label="Designer navigation"><button onClick={()=>{setLeftTab('pages');setLeftCollapsed(false);}}><Files size={16}/> Pages</button><button onClick={()=>{setLeftTab('elements');setLeftCollapsed(false);}}><Plus size={16}/> Elements</button><button onClick={()=>{setLeftTab('layers');setLeftCollapsed(false);}}><Layers size={16}/> Layers</button><button onClick={()=>{setLeftTab('assets');setLeftCollapsed(false);}}><FolderOpen size={16}/> Assets</button><Link href={'/cms'+(siteId?'?siteId='+encodeURIComponent(siteId):'')}><Database size={16}/> CMS</Link><Link href={'/settings?siteId='+encodeURIComponent(siteId)}><Settings2 size={16}/> Site settings</Link></nav><span className="builder-autosave-status" role="status">{autoSaveStatus==='saving'?'Saving…':autoSaveStatus==='saved'?'All changes saved':autoSaveStatus==='error'?'Autosave failed':'Autosave on'}</span><div className="builder-toolbar-actions">
-          <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
+        <div className="builder-project"><span className="builder-studio-mark" aria-label="Studio">S</span><Link href="/">Projects</Link><span>/</span><strong>{site.name}</strong><span className="builder-mode">{pageTitle} · Designer</span></div>
+        <nav className="builder-top-nav" aria-label="Designer navigation"><button onClick={()=>{setLeftTab('pages');setLeftCollapsed(false);}}><Files size={16}/> Pages</button><button onClick={()=>{setLeftTab('elements');setLeftCollapsed(false);}}><Plus size={16}/> Elements</button><button onClick={()=>{setLeftTab('layers');setLeftCollapsed(false);}}><Layers size={16}/> Navigator</button><button onClick={()=>{setLeftTab('assets');setLeftCollapsed(false);}}><FolderOpen size={16}/> Assets</button><Link href={'/cms'+(siteId?'?siteId='+encodeURIComponent(siteId):'')}><Database size={16}/> CMS</Link><Link href={'/settings?siteId='+encodeURIComponent(siteId)}><Settings2 size={16}/> Site settings</Link></nav><span className="builder-autosave-status" role="status">{autoSaveStatus==='saving'?'Saving…':autoSaveStatus==='error'?'Save failed — retry Save':lastAutoSaved.current.json!==JSON.stringify(site)?'Unsaved changes':autoSaveStatus==='saved'?'All changes saved':'Autosave on'}</span><div className="builder-toolbar-actions">
+          <div className="builder-device" role="group" aria-label="Viewport"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} title="Desktop"><Monitor size={17}/></button><button className={device==='tablet'?'active':''} onClick={()=>setDevice('tablet')} title="Tablet viewport"><Tablet size={17}/></button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')} title="Mobile"><Smartphone size={17}/></button></div>
           <div className="builder-history-actions" role="group" aria-label="Edit history"><button type="button" className="builder-action" title="Undo (⌘/Ctrl+Z)" aria-label="Undo" disabled={!canUndo||preview} onClick={undo}><Undo2 size={17}/></button><button type="button" className="builder-action" title="Redo (⌘/Ctrl+Shift+Z)" aria-label="Redo" disabled={!canRedo||preview} onClick={redo}><Redo2 size={17}/></button></div>
           <button className={preview?'builder-action active':'builder-action'} onClick={()=>setPreview(v=>!v)}><Eye size={17}/><span>{preview?'Exit preview':'Preview'}</span></button>
-          <button className="primary" onClick={()=>void save()} disabled={!loaded||saving}><Save size={16}/>{saving?'Saving…':saved?'Saved':'Save'}</button>
+          <Link className="builder-publish-link" href={'/publishing?siteId='+encodeURIComponent(siteId)}><Globe2 size={14}/> Publishing</Link><button className="primary" onClick={()=>void save()} disabled={!loaded||saving}><Save size={16}/>{saving?'Saving…':saved?'Saved':'Save'}</button>
         </div>
       </header>
       {error && <div className="builder-error" role="alert">{error}</div>}
@@ -910,10 +997,10 @@ function Workspace() {
         {!preview&&<button className="builder-panel-toggle builder-panel-toggle-left" onClick={()=>setLeftCollapsed(v=>!v)} title={leftCollapsed?'Show left panel':'Hide left panel'} aria-label={leftCollapsed?'Show left panel':'Hide left panel'}><ChevronLeft size={16} style={{transform:leftCollapsed?'rotate(180deg)':undefined}}/></button>}
         {!preview&&<button className="builder-panel-toggle builder-panel-toggle-right" onClick={()=>setRightCollapsed(v=>!v)} title={rightCollapsed?'Show inspector':'Hide inspector'} aria-label={rightCollapsed?'Show inspector':'Hide inspector'}><ChevronLeft size={16} style={{transform:rightCollapsed?undefined:'rotate(180deg)'}}/></button>}
         {!preview && <aside className="builder-left">
-          {leftTab==='pages'&&<div className={"builder-pages"+(pagesExpanded?" expanded":"")}><div className="builder-panel-heading"><strong><Files size={15}/> Pages</strong><button type="button" className="builder-pages-toggle" onClick={()=>setPagesExpanded(v=>!v)} aria-expanded={pagesExpanded} aria-label={pagesExpanded?"Collapse pages":"Expand pages"}><ChevronsUpDown size={14}/><span>{pages.length}</span></button></div><div className="builder-pages-details"><div className="builder-page-list">{pages.map(page=><button key={page.id} className={pageId===page.id?'active':''} onClick={()=>openPage(page)}>{page.title}<small>/{page.slug}</small></button>)}</div><button className="builder-page-settings-open" onClick={()=>setPageSettingsOpen(true)}><Settings2 size={15}/> Page settings</button><div className="builder-new-page"><input aria-label="New page name" placeholder="New page name" value={newPageName} onChange={event=>setNewPageName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void createPage();}}/><button disabled={!newPageName.trim()||creatingPage} onClick={()=>void createPage()} title="Create page"><FilePlus2 size={16}/></button></div>{pages.find(page=>page.id===pageId)?.slug!=='home'&&pageId&&<button className="builder-remove-page" onClick={()=>void deletePage()}><Trash2 size={14}/> Delete page</button>}</div></div>}
+          {leftTab==='pages'&&<div className={"builder-pages"+(pagesExpanded?" expanded":"")}><div className="builder-panel-heading"><strong><Files size={15}/> Pages</strong><button type="button" className="builder-pages-toggle" onClick={()=>setPagesExpanded(v=>!v)} aria-expanded={pagesExpanded} aria-label={pagesExpanded?"Collapse pages":"Expand pages"}><ChevronsUpDown size={14}/><span>{pages.length}</span></button></div><div className="builder-pages-details"><div className="builder-page-list">{pages.map(page=><button key={page.id} className={pageId===page.id?'active':''} onClick={()=>openPage(page)}>{page.title}<small>/{page.slug}</small></button>)}</div><button className="builder-page-settings-open" disabled={!pageId} onClick={()=>void duplicatePage()}><Copy size={15}/> Duplicate page</button><button className="builder-page-settings-open" onClick={()=>showPageSettings()}><Settings2 size={15}/> Page settings</button><div className="builder-new-page"><input aria-label="New page name" placeholder="New page name" value={newPageName} onChange={event=>setNewPageName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void createPage();}}/><button disabled={!newPageName.trim()||creatingPage} onClick={()=>void createPage()} title="Create page"><FilePlus2 size={16}/></button></div>{pages.find(page=>page.id===pageId)?.slug!=='home'&&pageId&&<button className="builder-remove-page" onClick={()=>void deletePage()}><Trash2 size={14}/> Delete page</button>}</div></div>}
           {leftTab==='elements' ? <div className="builder-side-content"><div className="builder-element-search"><Search size={15}/><input value={elementSearch} onChange={event=>setElementSearch(event.target.value)} placeholder="Search elements, sections, components" aria-label="Search elements and sections"/></div><div className="builder-element-categories">{(['All','Elements','Sections','Components'] as const).map(category=><button key={category} className={elementCategory===category?'active':''} onClick={()=>setElementCategory(category)}>{category}</button>)}</div>{(elementCategory==='All'||elementCategory==='Elements')&&<><p className="builder-hint">Drag an element onto the canvas, or click to append it.</p><div className="builder-element-grid">{palette.filter(item=>[item.label,item.description,item.type].join(' ').toLowerCase().includes(elementSearch.toLowerCase())).map(item=><button key={item.type} draggable onDragStart={event=>startDrag(event,{type:"new",blockType:item.type})} onDragEnd={endDrag} title={"Drag "+item.label+" onto canvas"} onClick={()=>add(item.type)}><item.icon size={23}/><strong>{item.label}</strong><small>{item.description}</small></button>)}</div></>}{(elementCategory==='All'||elementCategory==='Components')&&<div className="builder-section-presets"><div className="builder-panel-heading"><strong>Components</strong><span>{components.length}</span></div><p className="builder-hint">Select elements in Layers to create or update a component. Click a component to insert it; use the pencil to rename or refresh icon to update from selection.</p><input aria-label="Component name" placeholder="Component name" value={componentName} onChange={e=>setComponentName(e.target.value)}/><button className="builder-section-preset" disabled={componentBusy||(!selected&&!multiSelected.length)} onClick={saveAsComponent}><span><strong>Create component</strong><small>Save selected elements</small></span></button>{components.filter(component=>component.name.toLowerCase().includes(elementSearch.toLowerCase())).map(component=><div className="builder-component-row" key={component.id}><button title="Insert a copy into this page" onClick={()=>insertComponent(component)}><strong>{component.name}</strong><small>{component.blocks.length} elements · Insert</small></button><div className="builder-component-actions"><button title="Rename component" aria-label={'Rename '+component.name} onClick={()=>renameComponent(component.id)}><Pencil size={14}/></button><button title="Sync linked instances across all saved pages" aria-label={'Sync '+component.name+' sitewide'} disabled={componentBusy} onClick={()=>{void syncComponentSitewide(component);}}><Globe2 size={14}/></button><button title="Sync linked instances on current page" aria-label={'Sync '+component.name+' on current page'} onClick={()=>syncComponentInstances(component)}><RefreshCw size={14}/></button><button title="Update component from current Layers selection" aria-label={'Update '+component.name+' from selection'} onClick={()=>replaceComponentFromSelection(component.id)}><RefreshCw size={14}/></button><button title="Delete component" aria-label={'Delete '+component.name} onClick={()=>{if(window.confirm('Delete component '+component.name+' from this browser library?'))deleteComponent(component.id);}}><Trash2 size={14}/></button></div></div>)}</div>}{(elementCategory==='All'||elementCategory==='Sections')&&<div className="builder-section-presets"><div className="builder-panel-heading"><strong>Sections</strong><span>Ready-made</span></div><p className="builder-hint">Insert a section, then customize its elements in Layers.</p>{sectionPresets.filter(preset=>[preset.name,preset.description,preset.category].join(' ').toLowerCase().includes(elementSearch.toLowerCase())).map(preset=><button key={preset.id} className="builder-section-preset" onClick={()=>insertSection(preset)}><span><strong>{preset.name}</strong><small>{preset.category} · {preset.description}</small></span></button>)}</div>}</div> : leftTab==='assets'?<div className="builder-side-content builder-assets-panel"><div className="builder-panel-heading"><strong>Assets</strong><span>{assets.length}</span></div><p className="builder-hint">Upload images from your computer, then select Use to insert them.</p><label className="builder-upload-zone">Upload images<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files);e.target.value='';}}/></label><p className="builder-hint">PNG, JPEG or WebP, maximum 10 MB each. Local development storage.</p>{assetBusy&&<p>Uploading images…</p>}<div className="builder-asset-grid">{assets.map(asset=><div className="builder-asset-card" key={asset.id}><img src={asset.url} alt={asset.alt||''} loading="lazy"/><strong>{asset.name}</strong><div><button onClick={()=>useAsset(asset)}>Use</button><button onClick={()=>void deleteAsset(asset.id)} aria-label={'Remove '+asset.name}><Trash2 size={14}/></button></div></div>)}</div></div> : leftTab==='layers'?<div className="builder-side-content"><div className="builder-panel-heading"><strong>Page layers</strong><span>{site.blocks.length}</span></div><div className="builder-group-actions"><span>{multiSelected.length} selected</span><button disabled={multiSelected.length<2} onClick={groupSelection}>Group in Container</button><button disabled={!current||current.type!=='container'} onClick={ungroupSelection}>Ungroup</button><button disabled={!selectedIds().length} onClick={duplicateSelection} title="Duplicate selected (Cmd/Ctrl+D)">Duplicate</button><button disabled={!selectedIds().length} onClick={remove} title="Delete selected (Delete/Backspace)">Delete</button></div><p className="builder-hint">Cmd/Ctrl-click or Shift-click layers to select multiple elements.</p><div className="builder-layer-search"><Search size={15}/><input aria-label="Search layers" placeholder="Find layers…" value={layerSearch} onChange={e=>setLayerSearch(e.target.value)}/></div>{site.blocks.length===0?<p className="builder-hint">No elements. Add one from Elements.</p>:visibleLayerRows().map(({block:b,depth,hasChildren})=>{const Icon=layerIcons[b.type]||Layers;const index=site.blocks.findIndex(item=>item.id===b.id);return <div className={'builder-layer'+(multiSelected.includes(b.id)||selected===b.id?' active':'')} key={b.id} draggable onDragStart={event=>startDrag(event,{type:"move",id:b.id})} onDragEnd={endDrag} onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'before')} style={{paddingLeft:8+depth*16}}><span className="builder-layer-drop-before" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'before')} title="Drop before"/><button type="button" className="builder-layer-expand" aria-label={hasChildren?(collapsedLayers.includes(b.id)?'Expand children':'Collapse children'):'No children'} disabled={!hasChildren} onClick={()=>toggleLayerCollapsed(b.id)}>{hasChildren?<ChevronDown size={13} style={{transform:collapsedLayers.includes(b.id)?'rotate(-90deg)':undefined}}/>:<span className="builder-layer-spacer"/>}</button><button title={b.classNames||b.type} onClick={event=>toggleSelection(b.id,event.metaKey||event.ctrlKey||event.shiftKey)}><GripVertical size={12} className="builder-layer-grip"/><Icon size={15}/><span className="builder-layer-label">{layerLabel(b)}</span></button><button type="button" className="builder-layer-after" title="Drop after this layer" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'after')}><ArrowDown size={12}/></button>{b.type==='container'&&<button type="button" className="builder-layer-nest" title="Drop inside container" onDragOver={layerDragOver} onDrop={event=>dropOnLayer(event,b.id,'inside')}><Plus size={12}/></button>}<div className="builder-layer-actions"><button aria-label="Move up" disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button aria-label="Move down" disabled={index===site.blocks.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button></div></div>})}</div> : null}
         </aside>}
-        <div className="builder-stage"><div className="builder-stage-heading"><span>{device==='desktop'?'Desktop canvas':'Mobile canvas'}</span><span>{device==='desktop'?'Responsive':'390px wide'}</span></div><div className={'builder-canvas'+(device==='mobile'?' mobile':'')}>
+        <div className="builder-stage"><div className="builder-stage-heading"><div className="builder-canvas-location"><Files size={13}/><strong>{pageTitle}</strong><span>/{pages.find(page=>page.id===pageId)?.slug||'home'}</span></div><div className="builder-canvas-tools"><span>{device==='desktop'?'Desktop':device==='tablet'?'Tablet · 768px':'Mobile · 390px'}</span><button onClick={()=>setZoom(value=>Math.max(25,value-25))} disabled={zoom===25} aria-label="Zoom out"><ZoomOut size={14}/></button><button onClick={()=>setZoom(100)} title="Reset zoom">{zoom}%</button><button onClick={()=>setZoom(value=>Math.min(150,value+25))} disabled={zoom===150} aria-label="Zoom in"><ZoomIn size={14}/></button></div></div><div className={'builder-canvas'+(device==='mobile'?' mobile':device==='tablet'?' tablet':'')} style={{zoom:zoom/100}}>
           <div className="builder-site-header" style={{backgroundColor:globalDesign.headerBackground||undefined,color:globalDesign.headerTextColor||undefined}}><strong>{globalDesign.logoText||site.name}</strong><nav className="builder-site-links">{pages.map(page=><button key={page.id} className={page.id===pageId?'active':''} onClick={()=>{if(!preview)openPage(page);}}>{page.title}</button>)}</nav></div>
           <div className={'builder-site-body'+(dragging?' is-dragging':'')} style={{backgroundColor:globalDesign.pageBackground||undefined,color:globalDesign.bodyTextColor||undefined,fontFamily:globalDesign.fontFamily||undefined}} onDragOver={event=>{if(event.dataTransfer.types.includes(dragMime))event.preventDefault();}}>
             {site.blocks.filter(b=>!b.parentId || !site.blocks.some(parent=>parent.id===b.parentId && parent.type==='container')).map((b,index)=><div key={b.id}>
@@ -947,8 +1034,9 @@ function Workspace() {
           </div> : <div className="builder-side-content builder-hint">Select an element on the canvas or in Layers to edit its content and styles.</div>}
         </aside>}
       </div>
+      <footer className="builder-bottom-bar"><nav aria-label="Selected element path"><button onClick={()=>{setSelected(null);setMultiSelected([]);}}>Body</button>{selectionTrail().map(block=><span key={block.id}><ChevronLeft size={12} style={{transform:'rotate(180deg)'}}/><button onClick={()=>{setSelected(block.id);setMultiSelected([]);}}>{layerLabel(block)}</button></span>)}</nav><span>{site.blocks.length} elements · {device} preview</span></footer>
 {imagePickerOpen&&<div className="builder-asset-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setImagePickerOpen(false);}}><div className="builder-asset-modal" role="dialog" aria-modal="true" aria-label="Choose image"><div className="builder-panel-heading"><strong>Choose image from Assets</strong><button onClick={()=>setImagePickerOpen(false)} aria-label="Close image picker"><X size={18}/></button></div><label className="builder-upload-zone">Upload new image<input type="file" accept="image/png,image/jpeg,image/webp" disabled={assetBusy} onChange={e=>{void uploadAssets(e.target.files,true);e.target.value='';}}/></label><div className="builder-asset-modal-grid">{assets.map(asset=><button key={asset.id} onClick={()=>useAsset(asset)}><img src={asset.url} alt={asset.alt||asset.name}/><span>{asset.name}</span></button>)}</div>{assets.length===0&&<p>No images yet. Upload one to get started.</p>}</div></div>}
-{pageSettingsOpen&&<div className="builder-asset-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setPageSettingsOpen(false);}}><div className="builder-asset-modal" role="dialog" aria-modal="true" aria-label="Page settings"><div className="builder-panel-heading"><strong>Page settings · {pageTitle}</strong><button onClick={()=>setPageSettingsOpen(false)}><X size={18}/></button></div><div className="builder-side-content"><div className="builder-panel-heading"><strong>Page SEO</strong></div><label htmlFor="seo-title">Search title</label><input id="seo-title" maxLength={70} value={site.seo?.title||''} onChange={e=>updateSeo({title:e.target.value})}/><label htmlFor="seo-description">Meta description</label><textarea id="seo-description" rows={5} maxLength={320} value={site.seo?.description||''} onChange={e=>updateSeo({description:e.target.value})}/><label htmlFor="seo-image">Social image URL</label><input id="seo-image" type="url" value={site.seo?.ogImage||''} onChange={e=>updateSeo({ogImage:e.target.value})}/><label className="builder-seo-toggle"><input type="checkbox" checked={site.seo?.noindex||false} onChange={e=>updateSeo({noindex:e.target.checked})}/> Noindex</label><p className="builder-hint">SEO values are saved with the page. Public metadata rendering is not implemented yet.</p></div><button className="primary" onClick={()=>{setPageSettingsOpen(false);void save();}}>Save settings</button></div></div>}
+{pageSettingsOpen&&<div className="builder-asset-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setPageSettingsOpen(false);}}><div className="builder-asset-modal" role="dialog" aria-modal="true" aria-label="Page settings"><div className="builder-panel-heading"><strong>Page settings · {pageTitle}</strong><button aria-label="Close page settings" onClick={()=>setPageSettingsOpen(false)}><X size={18}/></button></div><div className="builder-side-content"><div className="builder-page-general"><h3>General</h3><label htmlFor="page-name">Page name</label><input id="page-name" maxLength={120} value={pageNameDraft} onChange={event=>setPageNameDraft(event.target.value)}/><label htmlFor="page-slug">URL slug</label><input id="page-slug" maxLength={100} disabled={pages.find(page=>page.id===pageId)?.slug==='home'} value={pageSlugDraft} onChange={event=>setPageSlugDraft(event.target.value)}/><p className="builder-hint">Changing a URL does not create a redirect. Update links that point to this page.</p><button type="button" disabled={pageBusy||!pageId||!pageNameDraft.trim()||!pageSlugDraft} onClick={()=>void updatePageMetadata()}>{pageBusy?'Updating…':'Update page details'}</button>{pageDetailsStatus&&<p role="status">{pageDetailsStatus}</p>}</div><div className="builder-panel-heading"><strong>Page SEO</strong></div><label htmlFor="seo-title">Search title</label><input id="seo-title" maxLength={70} value={site.seo?.title||''} onChange={e=>updateSeo({title:e.target.value})}/><label htmlFor="seo-description">Meta description</label><textarea id="seo-description" rows={5} maxLength={320} value={site.seo?.description||''} onChange={e=>updateSeo({description:e.target.value})}/><label htmlFor="seo-image">Social image URL</label><input id="seo-image" type="url" value={site.seo?.ogImage||''} onChange={e=>updateSeo({ogImage:e.target.value})}/><label className="builder-seo-toggle"><input type="checkbox" checked={site.seo?.noindex||false} onChange={e=>updateSeo({noindex:e.target.checked})}/> Noindex</label><p className="builder-hint">SEO values are saved with the page and used in the site preview. Preview pages remain noindex.</p></div><button className="primary" onClick={()=>{setPageSettingsOpen(false);void save();}}>Save settings</button></div></div>}
     </div>
   </div>;
 }

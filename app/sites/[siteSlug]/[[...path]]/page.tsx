@@ -3,7 +3,7 @@ import SiteTabs from '../../../components/SiteTabs';
 import SiteForm from '../../../components/SiteForm';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { prisma } from '../../../../lib/prisma';
+import { getPrisma } from '../../../../lib/prisma';
 import type { CSSProperties } from 'react';
 
 type Params={params:Promise<{siteSlug:string;path?:string[]}>};
@@ -15,6 +15,7 @@ const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isA
 function getContent(v:unknown):Content {return obj(v) as Content;}
 function getDesign(v:unknown):Design {return obj(v) as Design;}
 async function load({siteSlug,path}: {siteSlug:string;path?:string[]}) {
+  const prisma = getPrisma();
   if(path && (path.length!==1 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(path[0])))return null;
   const slug=path?.[0]||'home';
   const site=await prisma.site.findUnique({where:{slug:siteSlug},select:{id:true,name:true,slug:true,description:true,defaultTitle:true,globalDesign:true,siteConfig:true,pages:{select:{id:true,title:true,slug:true,content:true},orderBy:{createdAt:'asc'}}}});
@@ -76,6 +77,7 @@ function Element({block,blocks,design,siteId,pageSlug,successMessage,depth=0}: {
   return null;
 }
 export default async function PublicPage({params}:Params){
+  const prisma = getPrisma();
   const values=await params;
   const data=await load(values);
   if(!data){

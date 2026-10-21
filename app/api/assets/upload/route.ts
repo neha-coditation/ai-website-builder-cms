@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../lib/prisma';
+import { getPrisma } from '../../../../lib/prisma';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
+  const prisma = getPrisma();
   const data = await request.formData();
   const siteId = data.get('siteId');
   const file = data.get('file');

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '../../../../../../../lib/prisma';
+import { getPrisma } from '../../../../../../../lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +9,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteSlug: string; collectionSlug: string }> }
 ) {
+  const prisma = getPrisma();
   const { siteSlug, collectionSlug } = await params;
   const page = Number(request.nextUrl.searchParams.get('page') || '1');
   const limit = Number(request.nextUrl.searchParams.get('limit') || '20');

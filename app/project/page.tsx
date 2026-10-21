@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import {Suspense,useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useSearchParams} from 'next/navigation';
@@ -16,7 +17,7 @@ const sections=[
 function Overview(){
  const params=useSearchParams();const siteId=params.get('siteId')||'';
  const [site,setSite]=useState<Site|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- useEffect(()=>{if(!siteId){setError('Select a website from the workspace.');setLoading(false);return;}let live=true;fetch('/api/sites/'+encodeURIComponent(siteId),{cache:'no-store'}).then(async response=>{if(!response.ok)throw Error('Unable to load this website');return response.json()}).then(data=>{if(live)setSite(data)}).catch(e=>{if(live)setError(e instanceof Error?e.message:'Unable to load website')}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[siteId]);
+ useEffect(()=>{if(!siteId){setError('Select a website from the workspace.');setLoading(false);return;}let live=true;fetch('/api/sites/'+encodeURIComponent(siteId),{cache:'no-store'}).then(async response=>{if(!response.ok)throw Error('Unable to load this website');return readJsonResponse(response)}).then(data=>{if(live)setSite(data)}).catch(e=>{if(live)setError(e instanceof Error?e.message:'Unable to load website')}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[siteId]);
  const href=(path:string)=>path+'?siteId='+encodeURIComponent(siteId);
  return <div className="studio-workspace">
   <aside className="studio-workspace-nav"><Link href="/" className="studio-workspace-brand">✦ Studio CMS</Link><Link href="/" className="studio-workspace-back"><ArrowLeft size={15}/> All websites</Link><div className="studio-workspace-nav-label">SITE WORKSPACE</div><Link className="active" href={href('/project')}><LayoutDashboard size={17}/> Overview</Link>{sections.map(section=><Link key={section.label} href={href(section.path)}><section.icon size={17}/>{section.label}</Link>)}<div className="studio-workspace-nav-foot"><ShieldCheck size={15}/> Local development · QA pending</div></aside>

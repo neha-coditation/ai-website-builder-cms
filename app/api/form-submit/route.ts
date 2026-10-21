@@ -1,9 +1,10 @@
 import {NextResponse} from 'next/server';
-import {prisma} from '../../../lib/prisma';
+import { getPrisma } from '../../../lib/prisma';
 import {z} from 'zod';
 import {Prisma} from '@prisma/client';
 const schema=z.object({siteId:z.string().min(1),formId:z.string().min(1).max(120),pageSlug:z.string().max(300),fields:z.record(z.string().max(5000)),website:z.string().max(200).optional()});
 export async function POST(request:Request){
+  const prisma = getPrisma();
  const origin=request.headers.get('origin');
  if(origin){try{if(new URL(origin).host!==request.headers.get('host'))return NextResponse.json({error:'Origin not allowed'},{status:403});}catch{return NextResponse.json({error:'Invalid origin'},{status:403});}}
  const length=Number(request.headers.get('content-length')||0);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { prisma } from '../../../../lib/prisma';
+import { getPrisma } from '../../../../lib/prisma';
 
 const globalDesignSchema = z.object({
   logoText: z.string().max(120).default(''),
@@ -43,12 +43,14 @@ const schema = z.object({
 });
 type Context = { params: Promise<{ siteId: string }> };
 export async function GET(_request: Request, { params }: Context) {
+  const prisma = getPrisma();
   const { siteId } = await params;
   const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, slug: true, description: true, defaultTitle: true, faviconUrl: true, globalDesign: true, siteConfig:true } });
   if (!site) return NextResponse.json({ error: 'Website not found' }, { status: 404 });
   return NextResponse.json(site);
 }
 export async function PATCH(request: Request, { params }: Context) {
+  const prisma = getPrisma();
   const { siteId } = await params;
   const parsed = schema.safeParse(await request.json().catch(()=>null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

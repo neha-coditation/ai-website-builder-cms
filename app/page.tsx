@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../lib/read-json-response';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Database, FolderOpen, Globe, LayoutDashboard, Plus, Search, Settings2 } from 'lucide-react';
@@ -20,7 +21,7 @@ export default function Dashboard() {
     try {
       const response = await fetch('/api/sites', { cache: 'no-store' });
       if (!response.ok) throw new Error('Could not load projects. Check the database connection and Prisma migrations.');
-      setSites(await response.json());
+      setSites(await readJsonResponse(response));
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to load projects.');
@@ -39,7 +40,7 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), slug: slugify(name) + '-' + Date.now().toString(36) }),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = await readJsonResponse(response).catch(() => ({}));
       if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not create website.');
       setCreating(false);
       setName('');

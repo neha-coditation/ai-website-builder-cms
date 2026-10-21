@@ -1,4 +1,5 @@
 'use client';
+import { readJsonResponse } from '../../lib/read-json-response';
 import {Suspense,useEffect,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 import Link from 'next/link';
@@ -6,7 +7,7 @@ type Submission={id:string;formId:string;pageSlug:string;status:string;createdAt
 function Inbox(){
  const params=useSearchParams();const siteId=params.get('siteId')||'';
  const [items,setItems]=useState<Submission[]>([]);const [query,setQuery]=useState('');const [formFilter,setFormFilter]=useState('');const [error,setError]=useState('');const [loading,setLoading]=useState(true);
- useEffect(()=>{if(!siteId){setLoading(false);return;}let active=true;fetch('/api/projects/'+encodeURIComponent(siteId)+'/submissions',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Unable to load submissions');return r.json()}).then(v=>{if(active)setItems(v.submissions||[])}).catch(e=>{if(active)setError(String(e))}).finally(()=>{if(active)setLoading(false)});return ()=>{active=false}},[siteId]);
+ useEffect(()=>{if(!siteId){setLoading(false);return;}let active=true;fetch('/api/projects/'+encodeURIComponent(siteId)+'/submissions',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Unable to load submissions');return readJsonResponse(r)}).then(v=>{if(active)setItems(v.submissions||[])}).catch(e=>{if(active)setError(String(e))}).finally(()=>{if(active)setLoading(false)});return ()=>{active=false}},[siteId]);
  const forms=Array.from(new Set(items.map(i=>i.formId))).sort();
  const visible=items.filter(i=>(!formFilter||i.formId===formFilter)&&(!query||[i.pageSlug,i.formId,...Object.values(i.data).map(String)].some(v=>v.toLowerCase().includes(query.toLowerCase()))));
  function exportCsv(){const keys=['createdAt','pageSlug','formId','name','email','message'];const esc=(v:unknown)=>'"'+String(v??'').replace(/"/g,'""')+'"';const csv=[keys.join(','),...visible.map(i=>[i.createdAt,i.pageSlug,i.formId,i.data.name,i.data.email,i.data.message].map(esc).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='form-submissions.csv';a.click();URL.revokeObjectURL(url)}

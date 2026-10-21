@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '../../../lib/prisma';
+import { getPrisma } from '../../../lib/prisma';
 
 const schema=z.object({
  siteId:z.string().min(1),
@@ -9,12 +9,14 @@ const schema=z.object({
  alt:z.string().max(500).default(''),
 });
 export async function GET(request:Request){
+  const prisma = getPrisma();
  const siteId=new URL(request.url).searchParams.get('siteId');
  if(!siteId)return NextResponse.json({error:'siteId required'},{status:400});
  const assets=await prisma.siteAsset.findMany({where:{siteId},orderBy:{createdAt:'desc'},take:200});
  return NextResponse.json(assets);
 }
 export async function POST(request:Request){
+  const prisma = getPrisma();
  const parsed=schema.safeParse(await request.json().catch(()=>null));
  if(!parsed.success)return NextResponse.json({error:parsed.error.flatten()},{status:400});
  const site=await prisma.site.findUnique({where:{id:parsed.data.siteId},select:{id:true}});
@@ -23,6 +25,7 @@ export async function POST(request:Request){
  return NextResponse.json(asset,{status:201});
 }
 export async function DELETE(request:Request){
+  const prisma = getPrisma();
  const parsed=z.object({siteId:z.string().min(1),id:z.string().min(1)}).safeParse(await request.json().catch(()=>null));
  if(!parsed.success)return NextResponse.json({error:'Invalid request'},{status:400});
  const result=await prisma.siteAsset.deleteMany({where:{id:parsed.data.id,siteId:parsed.data.siteId}});
