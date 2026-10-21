@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {getPrisma} from '../../../../../../../lib/prisma';
+import {getPrisma} from '../../../../../../lib/prisma';
 import {z} from 'zod';
 
 type Context={params:Promise<{siteId:string;submissionId:string}>};
