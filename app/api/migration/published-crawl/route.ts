@@ -65,7 +65,24 @@ export async function POST(request:Request){
    }
   }
   const missingStylesheets=cssUrls.filter(url=>!assets.some(asset=>asset.kind==='css'&&asset.url===url));
+  const signatures=[
+   {name:'GSAP',pattern:/\bgsap\b|greensock|TweenMax|ScrollTrigger/i},
+   {name:'Three.js',pattern:/three(?:\.min)?\.js|threejs|THREE\.Scene|WebGLRenderer/i},
+   {name:'globe.gl',pattern:/globe\.gl|Globe\(/i},
+   {name:'Lenis',pattern:/\blenis\b/i},
+   {name:'Lottie',pattern:/lottie(?:-web)?|bodymovin/i},
+   {name:'Swiper',pattern:/\bswiper\b/i},
+   {name:'Splide',pattern:/\bsplide\b/i},
+   {name:'AOS',pattern:/aos(?:\.js|\.css|\.init)/i},
+   {name:'Webflow IX2',pattern:/webflow\.js|data-w-id|ix2\.init/i},
+   {name:'jQuery',pattern:/jquery|jQuery\(/i}
+  ];
+  const animationLibraries=signatures.map(({name,pattern})=>{
+   const sources=[...pages.filter(page=>pattern.test(page.html)).map(page=>page.url),
+    ...assets.filter(asset=>pattern.test(asset.url)||pattern.test(asset.content.slice(0,120000))).map(asset=>asset.url)];
+   return {name,detected:sources.length>0,evidence:[...new Set(sources)].slice(0,8)};
+  }).filter(result=>result.detected);
   const breakpoints=[...new Set(assets.filter(a=>a.kind==='css').flatMap(a=>matches(a.content,/@media\s*([^{}]+)\{/gi)))].slice(0,80);
-  return NextResponse.json({readOnly:true,source:root.toString(),pageCount:pages.length,pages,assets,breakpoints,missingStylesheets,warnings,limitations:['Crawl limited to 8 HTML pages, 12 CSS and 5 JavaScript files; oversized resources are skipped.','Only publicly accessible HTML and permitted styles/scripts are read. This does not reconstruct native Webflow CMS bindings, components, or interaction editor settings.','Scripts are returned as text and never executed by this endpoint.','Pages linked only via JavaScript may not be discovered.']},{headers});
+  return NextResponse.json({readOnly:true,source:root.toString(),pageCount:pages.length,pages,assets,breakpoints,animationLibraries,missingStylesheets,warnings,limitations:['Crawl limited to 8 HTML pages, 12 CSS and 5 JavaScript files; oversized resources are skipped.','Only publicly accessible HTML and permitted styles/scripts are read. This does not reconstruct native Webflow CMS bindings, components, or interaction editor settings.','Scripts are returned as text and never executed by this endpoint.','Pages linked only via JavaScript may not be discovered.']},{headers});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Crawl failed'},{status:400,headers});}
 }
