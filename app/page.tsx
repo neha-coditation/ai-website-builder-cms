@@ -15,6 +15,8 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [upload, setUpload] = useState<File | null>(null);
 
   async function loadSites() {
     setLoading(true);
@@ -29,6 +31,20 @@ export default function Dashboard() {
   }
   useEffect(() => { void loadSites(); }, []);
 
+  async function importZip() {
+    if (!upload || importing) return;
+    setImporting(true); setError('');
+    try {
+      const form = new FormData(); form.append('file', upload);
+      const response = await fetch('/api/import/website-zip', { method: 'POST', body: form });
+      const result = await readJsonResponse(response);
+      if (!response.ok) throw new Error(result.error || 'ZIP import failed');
+      window.location.href = '/designer?siteId=' + encodeURIComponent(result.siteId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Import failed');
+      setCreating(false);
+    } finally { setImporting(false); }
+  }
   async function createSite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim() || saving) return;
@@ -71,6 +87,6 @@ export default function Dashboard() {
         </article>)}</div> : <div className="hub-empty"><FolderOpen size={36}/><h3>{query ? 'No matching projects' : 'No websites yet'}</h3><p>{query ? 'Try another search.' : 'Create your first website to get started.'}</p>{!query && <button className="primary" onClick={()=>setCreating(true)}><Plus size={16}/> Create website</button>}</div>}
       </div>
     </main>
-    {creating && <div className="hub-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setCreating(false)}}><form className="hub-modal" onSubmit={createSite}><div className="hub-modal-icon"><Settings2 size={22}/></div><h2>Create website</h2><p>Give your new project a name. You can edit its content after creation.</p><label htmlFor="project-name">Website name</label><input id="project-name" autoFocus maxLength={120} required placeholder="e.g. My portfolio" value={name} onChange={e=>setName(e.target.value)}/><div className="hub-modal-actions"><button type="button" onClick={()=>setCreating(false)}>Cancel</button><button className="primary" disabled={saving || !slugify(name)} type="submit">{saving ? 'Creating…' : 'Create website'}</button></div></form></div>}
+    {creating && <div className="hub-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setCreating(false)}}><form className="hub-modal" onSubmit={createSite}><div className="hub-modal-icon"><Settings2 size={22}/></div><h2>Create website</h2><p>Start from scratch or upload a website ZIP to import pages, CMS definitions, and SEO metadata.</p><label htmlFor="website-zip">Upload website ZIP</label><input id="website-zip" type="file" accept=".zip" onChange={e=>setUpload(e.target.files?.[0] || null)}/>{upload && <button type="button" className="primary" disabled={importing} onClick={()=>void importZip()}>{importing ? "Importing website…" : "Import ZIP and open Designer"}</button>}<p>Or create a blank website:</p><label htmlFor="project-name">Website name</label><input id="project-name" autoFocus maxLength={120} required placeholder="e.g. My portfolio" value={name} onChange={e=>setName(e.target.value)}/><div className="hub-modal-actions"><button type="button" onClick={()=>setCreating(false)}>Cancel</button><button className="primary" disabled={saving || !slugify(name)} type="submit">{saving ? 'Creating…' : 'Create website'}</button></div></form></div>}
   </div>;
 }
