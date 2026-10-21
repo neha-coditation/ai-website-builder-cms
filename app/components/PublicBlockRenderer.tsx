@@ -2,7 +2,7 @@ import SiteTabs from './SiteTabs';
 import SiteForm from './SiteForm';
 import type { CSSProperties } from 'react';
 
-export type Block={id:string;type:string;text?:string;tabContents?:string[];parentId?:string;collectionId?:string;displayField?:string;htmlId?:string;classNames?:string;alt?:string;href?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
+export type Block={id:string;type:string;text?:string;tabContents?:string[];dropdownOpen?:boolean;breakpointOverrides?:{tablet?:Block['style'];mobile?:Block['style']};parentId?:string;collectionId?:string;displayField?:string;htmlId?:string;classNames?:string;alt?:string;href?:string;layout?:'row'|'column'|'grid';gap?:number;columns?:number;style?:{color?:string;background?:string;fontSize?:number;padding?:number;radius?:number;align?:'left'|'center'|'right';width?:'auto'|'full'|'half';maxWidth?:number;marginTop?:number;marginBottom?:number}};
 export type ClassRule={color?:string;background?:string;fontSize?:number;padding?:number;radius?:number};
 export type Design={classes?:Record<string,ClassRule>;logoText?:string;headerBackground?:string;headerTextColor?:string;footerText?:string;footerBackground?:string;footerTextColor?:string;primaryColor?:string;bodyTextColor?:string;pageBackground?:string;fontFamily?:string};
 
@@ -31,7 +31,7 @@ export function Element({block,blocks,design,siteId,pageSlug,successMessage,ance
   if(block.type==='image')return block.text&&(/^(https:\/\/|\/uploads\/)/.test(block.text))?<img {...attrs} src={block.text} alt={block.alt||''} style={{...style,maxWidth:'100%',height:'auto'}}/>:null;
   if(block.type==='form')return <SiteForm siteId={siteId} formId={block.id} pageSlug={pageSlug} title={block.text||'Contact'} successMessage={successMessage} className={attrs.className} style={style}/>;
     if(block.type==='search')return <form {...attrs} style={style} role="search" action="#" method="get"><input type="search" name="q" placeholder={block.text||'Search'}/><button type="submit">Search</button></form>;
-  if(block.type==='dropdown'){const children=blocks.filter(b=>b.parentId===block.id);return <details {...attrs} style={style}><summary>{block.text||'Menu'}</summary><div>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} siteId={siteId} pageSlug={pageSlug} successMessage={successMessage} ancestors={nextAncestors} cmsEntries={cmsEntries}/>)}</div></details>;}
+  if(block.type==='dropdown'){const children=blocks.filter(b=>b.parentId===block.id);return <details {...attrs} style={style} open={block.dropdownOpen||undefined}><summary>{block.text||'Menu'}</summary><div>{children.map(child=><Element key={child.id} block={child} blocks={blocks} design={design} siteId={siteId} pageSlug={pageSlug} successMessage={successMessage} ancestors={nextAncestors} cmsEntries={cmsEntries}/>)}</div></details>;}
   if(block.type==='tabs'){const labels=(block.text||'Overview|Details').split('|').map(t=>t.trim()).filter(Boolean);return <SiteTabs id={'site-tabs-'+block.id} labels={labels} contents={block.tabContents} className={attrs.className} style={style}/>;}
   if(block.type==='input')return <input {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
   if(block.type==='textarea')return <textarea {...attrs} style={style} placeholder={block.text||'Enter text'}/>;
@@ -40,6 +40,7 @@ export function Element({block,blocks,design,siteId,pageSlug,successMessage,ance
   if(block.type==='divider')return <hr {...attrs} style={style}/>;
   if(block.type==='spacer')return <div {...attrs} style={{height:40,...style}} aria-hidden="true"/>;
   if(block.type==='video')return /^(https:\/\/|\/uploads\/)/.test(block.text ?? '')?<video {...attrs} src={block.text} controls preload="metadata" style={{...style,maxWidth:'100%'}}/>:<div {...attrs}>Video source not configured</div>;
+  // Embeds are rendered as escaped text only. Never execute arbitrary HTML, JS, or iframes from CMS content.
   if(block.type==='embed')return <pre {...attrs} style={{...style,whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{block.text}</pre>;
   if(block.type==='container'){
     const children=blocks.filter(b=>b.parentId===block.id);
