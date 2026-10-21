@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {decryptWebflowToken} from '../credentials/route';
+import {decryptWebflowToken} from '../../../../lib/webflow-credential';
 
 const BASE='https://api.webflow.com/v2';
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
