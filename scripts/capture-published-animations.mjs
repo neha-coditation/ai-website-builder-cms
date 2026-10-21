@@ -8,10 +8,12 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 
 const input=process.argv[2]??'https://www.coditation.com/';
-const output=resolve(process.cwd(),'migration-captures');
+const output=resolve(process.cwd(),process.argv[3]??'migration-captures');
 const parsed=new URL(input);
-if(parsed.protocol!=='https:'||parsed.hostname!=='www.coditation.com'||parsed.username||parsed.password||parsed.port){
- throw new Error('Only https://www.coditation.com/ pages are supported.');
+const isPublished=parsed.protocol==='https:'&&parsed.hostname==='www.coditation.com'&&!parsed.port;
+const isLocal=parsed.protocol==='http:'&&['localhost','127.0.0.1'].includes(parsed.hostname)&&['3000','3001'].includes(parsed.port);
+if((!isPublished&&!isLocal)||parsed.username||parsed.password){
+ throw new Error('Only published www.coditation.com or local http://localhost:3000/ (or 3001) are supported.');
 }
 let chromium;
 try{({chromium}=await import('playwright'));}catch{
@@ -28,7 +30,7 @@ try{
  await page.route('**/*',route=>{
   const req=route.request();
   if(req.isNavigationRequest()&&req.frame()===page.mainFrame()){
-   try{const u=new URL(req.url());if(u.hostname!=='www.coditation.com')return route.abort();}catch{return route.abort();}
+   try{const u=new URL(req.url());if(u.origin!==parsed.origin)return route.abort();}catch{return route.abort();}
   }
   if(!['GET','HEAD'].includes(req.method()))return route.abort();
   return route.continue();
