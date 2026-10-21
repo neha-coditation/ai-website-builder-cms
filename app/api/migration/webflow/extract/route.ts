@@ -52,16 +52,18 @@ export async function GET(request:Request){
   const pages=await collect('/sites/'+siteId+'/pages','pages',token);
   const collections=await collect('/sites/'+siteId+'/collections','collections',token);
   const entries:Obj[]=[];
+  const schemas:Obj[]=[];
   for(const collection of collections.items.slice(0,30)){
    const id=collection.id;
    if(typeof id!=='string'||!/^[a-f0-9]{24}$/i.test(id))continue;
+   try{schemas.push(await api('/collections/'+id,token));}catch(e){errors.push('Collection schema '+String(collection.displayName??id)+': '+(e instanceof Error?e.message:'unavailable'));}
    try{
     const result=await collect('/collections/'+id+'/items','items',token,5);
     entries.push({collectionId:id,collectionName:collection.displayName??collection.slug,items:result.items,total:result.total,complete:result.complete});
    }catch(e){errors.push('CMS items for '+String(collection.displayName??id)+': '+(e instanceof Error?e.message:'unavailable'));}
   }
   let redirects:Obj[]=[];let redirectCoverage:Obj|null=null;
-  try{const result=await collect('/sites/'+siteId+'/301_redirects','redirects',token);redirects=result.items;redirectCoverage={total:result.total,complete:result.complete};}
+  try{const result=await collect('/sites/'+siteId+'/redirects','redirects',token);redirects=result.items;redirectCoverage={total:result.total,complete:result.complete};}
   catch(e){errors.push('301 redirects not accessible through this API connection: '+(e instanceof Error?e.message:'unavailable'));}
   let assets:Obj[]=[];let assetCoverage:Obj|null=null;
   try{const result=await collect('/sites/'+siteId+'/assets','assets',token);assets=result.items;assetCoverage={total:result.total,complete:result.complete};}
@@ -70,7 +72,8 @@ export async function GET(request:Request){
   const published:null=null;
   const publicationStatus='not_checked_optional';
   const pageMetadata=pages.items.map(page=>({id:page.id??null,title:page.title??null,slug:page.slug??null,seo:page.seo??null,openGraph:page.openGraph??null,archived:page.archived??null,draft:page.draft??null}));
-  const collectionSchemas=collections.items.map(collection=>({id:collection.id??null,name:collection.displayName??collection.singularName??null,slug:collection.slug??null,fields:collection.fields??[]}));
-  return NextResponse.json({readOnly:true,siteId,pageCount:pages.items.length,pagesComplete:pages.complete,pageMetadata,collectionCount:collections.items.length,collectionsComplete:collections.complete,collectionSchemas,publicationStatus,cmsEntries:entries,redirects,redirectCoverage,assets,assetCoverage,published,errors,limitations:['CMS entries are capped at 500 per collection and 30 collections.','Publishing is not required. Rendered HTML/CSS requires a separate authorized Designer extraction or optional export.','CSS rules, computed responsive layouts, reusable components and interaction behavior are not reconstructed.']},{headers});
+  const collectionSchemas=schemas.length?schemas:collections.items.map(collection=>({id:collection.id??null,name:collection.displayName??collection.singularName??null,slug:collection.slug??null,fields:collection.fields??[]}));
+  const availability={pageMetadata:true,cmsSchemas:true,cmsItems:true,assetInventory:assetCoverage!==null,redirects:redirectCoverage!==null,visualElementTrees:false,cssRules:false,responsiveBreakpoints:false,interactions:false,customCode:false,fonts:assets.some(a=>/\.(woff2?|ttf|otf)(\?|$)/i.test(String(a.originalFileName??a.url??'')))};
+  return NextResponse.json({readOnly:true,siteId,availability,pageCount:pages.items.length,pagesComplete:pages.complete,pageMetadata,collectionCount:collections.items.length,collectionsComplete:collections.complete,collectionSchemas,publicationStatus,cmsEntries:entries,redirects,redirectCoverage,assets,assetCoverage,published,errors,limitations:['CMS entries are capped at 500 per collection and 30 collections.','Publishing is not required. Rendered HTML/CSS requires a separate authorized Designer extraction or optional export.','The standard Webflow Data API cannot export native Designer element trees, CSS rules, responsive layouts, reusable components or interactions. These require Designer access or another authorized visual source.']},{headers});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Extraction failed'},{status:502,headers});}
 }
