@@ -1,3 +1,0 @@
-import {getPrisma} from './prisma';
-function keyBytes(){const key=process.env.MIGRATION_ENCRYPTION_KEY;if(!key||!/^[a-f0-9]{64}$/i.test(key))throw new Error('Missing migration encryption key');return Uint8Array.from(Buffer.from(key,'hex'));}
-export async function decryptWebflowToken(){const db=getPrisma();try{const item=await db.migrationCredential.findUnique({where:{id:'webflow'}});if(!item)return null;const key=await crypto.subtle.importKey('raw',keyBytes(),'AES-GCM',false,['decrypt']);const bytes=await crypto.subtle.decrypt({name:'AES-GCM',iv:Uint8Array.from(Buffer.from(item.iv,'base64'))},key,Uint8Array.from(Buffer.from(item.ciphertext,'base64')));return new TextDecoder().decode(bytes);}finally{await db.$disconnect();}}

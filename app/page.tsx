@@ -1,76 +1,15 @@
-'use client';
-import { readJsonResponse } from '../lib/read-json-response';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Database, FolderOpen, Globe, LayoutDashboard, Plus, Search, Settings2 } from 'lucide-react';
-
-type Site = { id: string; name: string; slug: string; updatedAt: string };
-const slugify = (name: string) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-export default function Dashboard() {
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  async function loadSites() {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/sites', { cache: 'no-store' });
-      if (!response.ok) throw new Error('Could not load projects. Check the database connection and Prisma migrations.');
-      setSites(await readJsonResponse(response));
-      setError('');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Unable to load projects.');
-    } finally { setLoading(false); }
-  }
-  useEffect(() => { void loadSites(); }, []);
-
-  async function createSite(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!name.trim() || saving) return;
-    setSaving(true);
-    setError('');
-    try {
-      const response = await fetch('/api/sites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), slug: slugify(name) + '-' + Date.now().toString(36) }),
-      });
-      const result = await readJsonResponse(response).catch(() => ({}));
-      if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not create website.');
-      setCreating(false);
-      setName('');
-      await loadSites();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not create website.');
-    } finally { setSaving(false); }
-  }
-
-  const visible = sites.filter(site => (site.name + ' ' + site.slug).toLowerCase().includes(query.toLowerCase()));
-  return <div className="hub">
-    <aside className="hub-sidebar">
-      <Link className="hub-logo" href="/"><span className="brandicon">✦</span> Studio<span className="muted">CMS</span></Link>
-      <div className="section">WORKSPACE</div>
-      <Link className="hub-nav active" href="/"><LayoutDashboard size={18}/> Dashboard</Link>
-      <div className="hub-nav muted"><FolderOpen size={18}/> Projects</div>
-      <div className="hub-sidebar-foot">Website Builder · Local development</div>
-    </aside>
-    <main className="hub-main">
-      <div className="hub-top"><span>Workspace / Dashboard</span><span className="hub-top-status">Local workspace</span></div>
-      <div className="hub-content">
-        <div className="hub-heading"><div><p className="hub-eyebrow">YOUR WORKSPACE</p><h1>Dashboard</h1><p>Manage your websites and start something new.</p></div><button className="primary" onClick={() => setCreating(true)}><Plus size={17}/> New website</button></div>
-        <div className="hub-stats"><div><strong>{sites.length}</strong><span>Total websites</span></div><div><strong>Local</strong><span>Environment</span></div></div>
-        <div className="hub-list-head"><div><h2>All projects</h2><p>Open a website to manage its designer, CMS, forms, SEO and settings.</p></div><div className="hub-search"><Search size={16}/><input aria-label="Search projects" placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)}/></div></div>
-        {error && <div className="hub-error" role="alert">{error} <button onClick={()=>void loadSites()}>Retry</button></div>}
-        {loading ? <p className="hub-muted">Loading projects…</p> : visible.length ? <div className="hub-grid">{visible.map(site=><article className="hub-project" key={site.id}>
-          <div className="hub-project-art"><Globe size={34}/></div><div className="hub-project-body"><h3>{site.name}</h3><p>/{site.slug}</p><small>Updated {new Date(site.updatedAt).toLocaleDateString()}</small><div className="hub-project-actions"><Link href={'/project?siteId='+encodeURIComponent(site.id)}>Manage website <ArrowRight size={15}/></Link><Link href={'/designer?siteId='+encodeURIComponent(site.id)}>Designer</Link><Link href={'/cms?siteId='+encodeURIComponent(site.id)}><Database size={15}/> CMS</Link><Link href={'/settings?siteId='+encodeURIComponent(site.id)}><Settings2 size={15}/> Settings</Link></div></div>
-        </article>)}</div> : <div className="hub-empty"><FolderOpen size={36}/><h3>{query ? 'No matching projects' : 'No websites yet'}</h3><p>{query ? 'Try another search.' : 'Create your first website to get started.'}</p>{!query && <button className="primary" onClick={()=>setCreating(true)}><Plus size={16}/> Create website</button>}</div>}
-      </div>
-    </main>
-    {creating && <div className="hub-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setCreating(false)}}><form className="hub-modal" onSubmit={createSite}><div className="hub-modal-icon"><Settings2 size={22}/></div><h2>Create website</h2><p>Give your new project a name. You can edit its content after creation.</p><label htmlFor="project-name">Website name</label><input id="project-name" autoFocus maxLength={120} required placeholder="e.g. My portfolio" value={name} onChange={e=>setName(e.target.value)}/><div className="hub-modal-actions"><button type="button" onClick={()=>setCreating(false)}>Cancel</button><button className="primary" disabled={saving || !slugify(name)} type="submit">{saving ? 'Creating…' : 'Create website'}</button></div></form></div>}
-  </div>;
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Circle, Globe2, Layers3, ShieldCheck, Search, GitCompare, Rocket, Plus, ExternalLink } from "lucide-react";
+type Job={id:string;name:string;url:string;target:string;stage:number;createdAt:string};
+const stages=[{title:"Connect",detail:"Source website & destination",icon:Globe2},{title:"Analyze",detail:"Pages, assets, CMS & SEO",icon:Search},{title:"Map",detail:"Routes, components & fields",icon:Layers3},{title:"Build",detail:"Generate destination",icon:ArrowRight},{title:"Compare",detail:"Visual and functional QA",icon:GitCompare},{title:"Publish",detail:"Approval & deployment",icon:Rocket}];
+const storageKey="migration-studio-jobs-v1";
+export default function Home(){
+ const [jobs,setJobs]=useState<Job[]>([]);const [loaded,setLoaded]=useState(false);const [name,setName]=useState("");const [url,setUrl]=useState("");const [target,setTarget]=useState("Astro + Cloudflare Pages");const [showNew,setShowNew]=useState(false);const [active,setActive]=useState<string|null>(null);const [error,setError]=useState("");
+ useEffect(()=>{try{const saved=localStorage.getItem(storageKey);if(saved)setJobs(JSON.parse(saved))}catch{}setLoaded(true)},[]);
+ useEffect(()=>{if(loaded)localStorage.setItem(storageKey,JSON.stringify(jobs))},[jobs,loaded]);
+ const selected=jobs.find(j=>j.id===active);
+ function create(){try{const parsed=new URL(url.trim());if(!["http:","https:"].includes(parsed.protocol))throw Error();const job={id:crypto.randomUUID(),name:name.trim()||parsed.hostname,url:parsed.toString(),target,stage:0,createdAt:new Date().toISOString()};setJobs(p=>[job,...p]);setActive(job.id);setShowNew(false);setName("");setUrl("");setError("")}catch{setError("Enter a valid http(s) website URL.")}}
+ return <main className="shell"><aside className="sidebar"><div className="brand"><div className="brandicon"><Layers3 size={20}/></div><div><strong>MIGRATION<span>STUDIO</span></strong><small>Website migration workspace</small></div></div><div className="sideheading">WORKSPACE</div><button className={!selected?"nav active":"nav"} onClick={()=>setActive(null)}><Globe2 size={17}/> Overview</button><Link className="nav" href="/import"><Search size={17}/> Import website</Link><div className="sideheading">MIGRATIONS</div>{jobs.map(j=><button key={j.id} className={active===j.id?"nav active":"nav"} onClick={()=>setActive(j.id)}><Circle size={12}/><span className="truncate">{j.name}</span></button>)}<div className="sidebottom"><ShieldCheck size={17}/> No production changes without approval</div></aside><section className="content"><header className="topbar"><div><span className="eyebrow">WEBSITE MIGRATION PLATFORM</span><h1>{selected?selected.name:"Migration workspace"}</h1><p>{selected?"Plan and review each migration stage before deployment.":"Move websites across platforms with a clear, reviewable workflow."}</p></div><div style={{display:"flex",gap:10,flexWrap:"wrap"}}><Link className="secondary" href="/import">Import from URL <ArrowRight size={16}/></Link><button className="primary" onClick={()=>{setShowNew(true);setError("")}}><Plus size={17}/> New migration</button></div></header>{selected?<><div className="summary"><div><span className="eyebrow">SOURCE</span><a href={selected.url} target="_blank" rel="noreferrer">{selected.url}<ExternalLink size={13}/></a></div><div><span className="eyebrow">DESTINATION</span><strong>{selected.target}</strong></div><div><span className="eyebrow">STATUS</span><strong className="status">Planning only</strong></div></div><div className="sectiontitle"><h2>Migration pipeline</h2><span>6 stages</span></div><div className="stagegrid">{stages.map((s,i)=><div className="stage" key={s.title}><div className="stagehead"><div className="stageicon"><s.icon size={19}/></div><span>0{i+1}</span></div><h3>{s.title}</h3><p>{s.detail}</p><div className="stagefoot">{i===0?<><CheckCircle2 size={15}/> Source recorded</>:<><Circle size={15}/> Not implemented</>}</div></div>)}</div><div className="notice"><ShieldCheck size={20}/><div><strong>Safe by design</strong><p>This starter saves migration plans in this browser only. Crawling, CMS mapping, code generation, visual QA, and publishing require backend integrations and are not yet active.</p></div></div></>:<><div className="metrics"><div><span>Total migrations</span><strong>{jobs.length}</strong></div><div><span>Published</span><strong>0</strong></div><div><span>Awaiting implementation</span><strong>{jobs.length}</strong></div></div><div className="sectiontitle"><h2>Migration projects</h2><span>Local planning workspace</span></div>{jobs.length?<div className="joblist">{jobs.map(j=><button className="job" key={j.id} onClick={()=>setActive(j.id)}><div className="jobicon"><Globe2 size={20}/></div><div><strong>{j.name}</strong><p>{j.url} → {j.target}</p></div><span className="status">Planning</span><ArrowRight size={18}/></button>)}</div>:<div className="empty"><div className="emptyicon"><Globe2 size={28}/></div><h2>Start your first migration</h2><p>Connect a website, choose its destination, and organize the migration process in one workspace.</p><button className="primary" onClick={()=>setShowNew(true)}><Plus size={16}/> Create migration</button></div>}<div className="sectiontitle"><h2>How migration works</h2><span>End-to-end workflow</span></div><div className="stagegrid">{stages.map((s,i)=><div className="stage" key={s.title}><div className="stagehead"><div className="stageicon"><s.icon size={19}/></div><span>0{i+1}</span></div><h3>{s.title}</h3><p>{s.detail}</p></div>)}</div></>}{showNew&&<div className="overlay" onClick={()=>setShowNew(false)}><div className="modal" role="dialog" aria-modal="true" aria-label="Create migration" onClick={e=>e.stopPropagation()}><span className="eyebrow">NEW MIGRATION</span><h2>Connect your website</h2><p>Create a migration plan. No source website changes will be made.</p><label>Project name<input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Company website"/></label><label>Source website URL<input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com"/></label><label>Destination platform<select value={target} onChange={e=>setTarget(e.target.value)}>{["Astro + Cloudflare Pages","Static site + AWS S3","Webflow","Framer","WordPress"].map(x=><option key={x}>{x}</option>)}</select></label>{error&&<p className="error">{error}</p>}<div className="modalactions"><button className="secondary" onClick={()=>setShowNew(false)}>Cancel</button><button className="primary" onClick={create}>Create migration <ArrowRight size={16}/></button></div></div></div>}</section></main>
 }

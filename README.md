@@ -1,30 +1,25 @@
-# Studio CMS Starter (v0.1)
+# Migration Import Studio
 
-A working Next.js prototype for an independent visual website builder.
+Standalone website migration application based on the test branch's product direction, with its own isolated application tree.
 
 ## Run
-
-```bash
 npm install
+npm run typecheck
 npm run dev
-```
 
-Open http://localhost:3000
+Visit http://localhost:3000/import to analyze a public website URL.
 
-## Implemented
-- Project dashboard
-- Add and edit heading, paragraph, button, and image blocks
-- Layer selection and properties editor
-- Desktop/mobile canvas
-- Browser localStorage save/load
-- JSON export
+## Working scope
+- Migration dashboard and project planning (browser-local storage)
+- Read-only source HTML analysis API: POST /api/import/analyze with JSON {"url":"https://example.com"}
+- URL, DNS and redirect validation; HTML size/time limits; title, description, canonical, headings, links and image inventory
+- Responsive source-import UI
 
-## Not yet implemented
-Production authentication, database-backed CMS, migrations, AI, deployment, drag-and-drop, publishing, or real multi-project support. This is a starter prototype, not a production CMS.
+## Not yet supported
+- Full-site crawler and sitemap enumeration
+- Webflow, Framer and WordPress authenticated API connections
+- CMS mapping, asset downloading, AI conversion, visual regression or publishing
+- Database-backed jobs and multiuser authorization
 
-## Next milestones
-1. PostgreSQL/Prisma projects, pages, blocks, revisions
-2. CMS collections, typed fields, entries and slug-based templates
-3. Component tree, drag-and-drop, responsive style inspector
-4. Preview builds and publishing
-5. Source import adapters and AI generation
+## Security note
+The analysis endpoint fetches third-party public URLs. Its DNS precheck is a basic guard, not sufficient protection against DNS rebinding in production. Before deploying publicly, add network-level egress restrictions, authentication, quotas and rate limiting. Never expose this endpoint as an unrestricted public fetch proxy.
