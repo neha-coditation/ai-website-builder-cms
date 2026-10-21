@@ -4,7 +4,7 @@ export const runtime='nodejs';
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
 const allowedHost='www.coditation.com';
 const maxPages=8;
-const maxBytes=450_000;
+const maxBytes=2_500_000;
 function validUrl(value:string):URL{
  const url=new URL(value);
  if(url.protocol!=='https:'||url.hostname.toLowerCase()!==allowedHost||url.username||url.password||url.port||url.search.length>500)throw new Error('Only public HTTPS pages on www.coditation.com are supported.');
@@ -52,7 +52,7 @@ export async function POST(request:Request){
    }catch(e){warnings.push(e instanceof Error?e.message:'Page unavailable');}
   }
   if(!pages.length)return NextResponse.json({error:'No accessible published HTML pages found.',warnings},{status:422,headers});
-  const cssUrls=[...new Set(pages.flatMap(p=>p.stylesheets))].slice(0,5);
+  const cssUrls=[...new Set(pages.flatMap(p=>p.stylesheets))].slice(0,12);
   const jsUrls=[...new Set(pages.flatMap(p=>p.scripts))].slice(0,5);
   const assets:{url:string;kind:string;content:string}[]=[];
   for(const [kind,urls] of [['css',cssUrls],['javascript',jsUrls]] as const){
@@ -60,11 +60,12 @@ export async function POST(request:Request){
     try{
      const u=new URL(url);
      if(u.protocol!=='https:'||!([allowedHost,'cdn.prod.website-files.com','assets.website-files.com'].includes(u.hostname))) {warnings.push('Skipped external script/style: '+url);continue;}
-     assets.push({url,kind,content:await fetchText(url,220_000)});
+     assets.push({url,kind,content:await fetchText(url,kind==='css'?2_500_000:220_000)});
     }catch(e){warnings.push(e instanceof Error?e.message:'Asset unavailable');}
    }
   }
+  const missingStylesheets=cssUrls.filter(url=>!assets.some(asset=>asset.kind==='css'&&asset.url===url));
   const breakpoints=[...new Set(assets.filter(a=>a.kind==='css').flatMap(a=>matches(a.content,/@media\s*([^{}]+)\{/gi)))].slice(0,80);
-  return NextResponse.json({readOnly:true,source:root.toString(),pageCount:pages.length,pages,assets,breakpoints,warnings,limitations:['Crawl limited to 8 HTML pages and 5 CSS plus 5 JavaScript files; large resources are skipped.','Only publicly accessible HTML and permitted styles/scripts are read. This does not reconstruct native Webflow CMS bindings, components, or interaction editor settings.','Scripts are returned as text and never executed by this endpoint.','Pages linked only via JavaScript may not be discovered.']},{headers});
+  return NextResponse.json({readOnly:true,source:root.toString(),pageCount:pages.length,pages,assets,breakpoints,missingStylesheets,warnings,limitations:['Crawl limited to 8 HTML pages, 12 CSS and 5 JavaScript files; oversized resources are skipped.','Only publicly accessible HTML and permitted styles/scripts are read. This does not reconstruct native Webflow CMS bindings, components, or interaction editor settings.','Scripts are returned as text and never executed by this endpoint.','Pages linked only via JavaScript may not be discovered.']},{headers});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Crawl failed'},{status:400,headers});}
 }
