@@ -109,7 +109,8 @@ export default async function PublicPage({params}:Params){
   const collectionIds=[...new Set(blocks.filter(b=>b.type==='cms-list'&&b.collectionId).map(b=>b.collectionId as string))];
   const collections=collectionIds.length?await prisma.cmsCollection.findMany({where:{siteId:site.id,id:{in:collectionIds}},select:{id:true}}):[];
   const allowedIds=collections.map(c=>c.id);
-  const entries=allowedIds.length?await prisma.cmsEntry.findMany({where:{collectionId:{in:allowedIds},status:'published'},select:{id:true,collectionId:true,slug:true,data:true},orderBy:{updatedAt:'desc'},take:200}):[];
+  const entryGroups=await Promise.all(allowedIds.map(collectionId=>prisma.cmsEntry.findMany({where:{collectionId,status:'published'},select:{id:true,collectionId:true,slug:true,data:true},orderBy:{updatedAt:'desc'},take:100})));
+  const entries=entryGroups.flat();
   const cmsEntries:Record<string,Array<{id:string;slug:string;data:unknown}>>={};
   for(const entry of entries)(cmsEntries[entry.collectionId]??=[]).push(entry);
   return <div className="published-site" style={{background:design.pageBackground||'#fff',color:design.bodyTextColor||'#18202f',fontFamily:design.fontFamily||'system-ui'}}>
