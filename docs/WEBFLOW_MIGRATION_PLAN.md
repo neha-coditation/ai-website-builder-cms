@@ -53,3 +53,10 @@ No automatic Webflow URL scraping, remote code execution, database writes, asset
 4. Implement staging preview, screenshot diffs, accessibility, SEO and form checks.
 5. Implement atomic publishing, deployment history, rollback and explicit approval.
 6. Run end-to-end migration on a nonproduction site and review unsupported features.
+
+## Designer bundle contract (2026-10-21)
+- `POST /api/migration/webflow/designer` validates a version-1 JSON bundle, checks site access using the saved Webflow token, and returns a read-only summary plus the bundle.
+- Required: `version:1`, `siteId`, and `pages` entries shaped `{id,elements,settings?,interactions?}`; optional arrays: `styles`, `components`, `variables`, `assets`, `fonts`, `customCode`, `interactions`.
+- Input is capped at 8 MB and checked with Zod; no scripts are executed, no source site is changed, and no database import is performed.
+- This is an **intake endpoint, not a Designer extractor**. A separately authorized Webflow Designer extension or supported design-data connection must populate the bundle. Do not claim full-site visual extraction or fidelity until that integration and browser verification exist.
+- The Webflow REST inventory and CMS extraction operate without publishing the source project. Redirects can be unavailable due to API capabilities.
