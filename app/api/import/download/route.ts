@@ -5,7 +5,7 @@ import { webflowExport } from '../../../lib/webflow-export';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 180;
-const limits = { pages: 20, depth: 3, assets: 80, htmlBytes: 1_500_000, assetBytes: 2_000_000, totalBytes: 30_000_000, milliseconds: 120_000 };
+const limits = { pages: 500, depth: 8, assets: 500, htmlBytes: 1_500_000, assetBytes: 2_000_000, totalBytes: 150_000_000, milliseconds: 120_000 };
 function resolve(raw: string, base: string) { try { const u = new URL(raw.replace(/&amp;/g, '&'), base); if (!['https:', 'http:'].includes(u.protocol) || u.username || u.password) return null; u.hash=''; return u; } catch { return null; } }
 export async function POST(req: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     function discover(html: string, base: string) {
       for (const m of html.matchAll(/\b(?:src|href|poster)\s*=\s*["']([^"']+)["']/gi)) {
         const u = resolve(m[1], base);
-        if (u && /\.(css|js|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|mp4|webm)(?:$|\?)/i.test(u.href) && assetQueue.length < 400) assetQueue.push(u.href);
+        if (u && /\.(css|js|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|mp4|webm)(?:$|\?)/i.test(u.href) && assetQueue.length < 2000) assetQueue.push(u.href);
       }
       for (const m of html.matchAll(/(?:url\(\s*["']?|@import\s+["'])([^\s"')]+)|\bsrcset\s*=\s*["']([^"']+)["']/gi)) {
         for (const raw of m[2] ? m[2].split(',').map(v=>v.trim().split(/\s+/)[0]) : [m[1]]) { const u=resolve(raw,base); if(u && assetQueue.length<400) assetQueue.push(u.href); }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         discover(html,r.url);
         for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
           const u=resolve(m[1],r.url);
-          if(u && u.origin===origin && !u.search && !seen.has(u.href) && queue.length<200) {
+          if(u && u.origin===origin && !u.search && !seen.has(u.href) && queue.length<5000) {
             if(item.depth<limits.depth) queue.push({url:u.href,depth:item.depth+1});
             else entries.push({url:u.href,status:'skipped',reason:'Depth limit'});
           }
