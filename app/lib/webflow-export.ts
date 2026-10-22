@@ -4,7 +4,7 @@ export async function webflowExport(siteId: string, token: string, deadline: num
   const notes: string[] = [];
   let calls = 0, bytes = 0;
   async function get(path: string) {
-    if (++calls > 60 || Date.now() >= deadline) throw Error('Webflow export request/time limit reached.');
+    if (++calls > 300 || Date.now() >= deadline) throw Error('Webflow export request/time limit reached.');
     const r = await fetch('https://api.webflow.com/v2' + path, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(Math.max(1, Math.min(10000, deadline-Date.now()))) });
     if (!r.ok) throw Error(`Webflow HTTP ${r.status}; check read scopes or rate limits.`);
     const reader = r.body?.getReader();
@@ -13,7 +13,7 @@ export async function webflowExport(siteId: string, token: string, deadline: num
     while (true) {
       const part = await reader.read(); if (part.done) break;
       size += part.value.length; bytes += part.value.length;
-      if (size > 4_000_000 || bytes > 10_000_000) { await reader.cancel(); throw Error('Webflow response byte limit reached.'); }
+      if (size > 4_000_000 || bytes > 50_000_000) { await reader.cancel(); throw Error('Webflow response byte limit reached.'); }
       chunks.push(part.value);
     }
     const text = Buffer.concat(chunks).toString('utf8');
@@ -33,8 +33,8 @@ export async function webflowExport(siteId: string, token: string, deadline: num
     return items;
   }
   const site = await get(`/sites/${siteId}`);
-  const pages = await list(`/sites/${siteId}/pages`, 'pages', 200);
-  const collections = await list(`/sites/${siteId}/collections`, 'collections', 20);
+  const pages = await list(`/sites/${siteId}/pages`, 'pages', 2000);
+  const collections = await list(`/sites/${siteId}/collections`, 'collections', 100);
   const cms = [];
   for (const collection of collections) {
     const id = String(collection.id);
